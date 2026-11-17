@@ -3,545 +3,2165 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>시공간 탐험대: 역사를 구하라!</title>
+  <title>시공간 탐험대: 역사를 구하라! ✨</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Jua&family=Gowun+Dodum&display=swap" rel="stylesheet">
   <style>
+    :root { color-scheme: dark; }
+    * { -webkit-tap-highlight-color: transparent; }
     body {
       font-family: 'Gowun Dodum', sans-serif;
+      background: radial-gradient(circle at 50% 0%, #101a33 0%, #05070f 55%);
       user-select: none;
       -webkit-user-select: none;
+      overflow-x: hidden;
     }
-    .font-title {
+    .font-title { font-family: 'Jua', sans-serif; }
+    canvas { display: block; }
+    .game-shell {
+      width: 100%;
+      max-width: min(64rem, calc((100dvh - 14rem) * 16 / 9));
+      margin: 0 auto;
+    }
+    .game-frame {
+      box-shadow:
+        0 0 0 1px rgba(251, 191, 36, .14),
+        0 34px 90px -24px rgba(0, 0, 0, .95),
+        0 0 130px -40px rgba(251, 191, 36, .45);
+    }
+    .title-glow {
+      background: linear-gradient(180deg, #fff7d6 0%, #fcd34d 45%, #f59e0b 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+      filter: drop-shadow(0 3px 14px rgba(245, 158, 11, .45));
+    }
+    .is-hidden { display: none !important; }
+
+    /* 버튼 눌림 효과 */
+    .btn-bounce { transition: transform .1s ease, box-shadow .1s ease, background .15s; }
+    .btn-bounce:active { transform: translateY(3px); box-shadow: none !important; }
+
+    /* 난이도 */
+    .diff-btn {
+      padding: .5rem .95rem;
+      border-radius: 9999px;
+      border: 2px solid rgba(100, 116, 139, .45);
+      background: rgba(30, 41, 59, .72);
+      color: #cbd5e1;
+      font-weight: 700;
+      font-size: .82rem;
+      line-height: 1.1;
+      cursor: pointer;
+      transition: all .15s ease;
+    }
+    .diff-btn:hover { border-color: rgba(251, 191, 36, .6); color: #fef3c7; }
+    .diff-btn.active {
+      background: linear-gradient(135deg, #fcd34d, #f59e0b);
+      color: #1f1608;
+      border-color: #fde68a;
+      box-shadow: 0 0 24px -4px rgba(251, 191, 36, .85);
+      transform: translateY(-1px);
+    }
+
+    /* 캐릭터 카드 */
+    .char-card { transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease; }
+    .char-card:hover { transform: translateY(-6px); }
+    .char-card.boy:hover { border-color: #60a5fa; box-shadow: 0 16px 42px -14px rgba(59, 130, 246, .8); }
+    .char-card.girl:hover { border-color: #fb7185; box-shadow: 0 16px 42px -14px rgba(244, 63, 94, .8); }
+
+    /* 퀴즈 선택지 */
+    .opt-btn {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: .75rem;
+      width: 100%;
+      text-align: left;
+      padding: .68rem 1rem;
+      border-radius: .9rem;
+      background: rgba(30, 41, 59, .88);
+      border: 2px solid rgba(71, 85, 105, .9);
+      color: #e2e8f0;
+      font-weight: 700;
+      font-size: .92rem;
+      line-height: 1.35;
+      cursor: pointer;
+      transition: transform .12s ease, border-color .15s, background .15s;
+    }
+    .opt-btn:hover:not(:disabled) {
+      background: rgba(51, 65, 85, .96);
+      border-color: rgba(251, 191, 36, .8);
+      transform: translateY(-1px);
+    }
+    .opt-btn:disabled { cursor: default; }
+    .opt-btn.opt-correct { border-color: #34d399; background: rgba(16, 185, 129, .22); color: #d1fae5; }
+    .opt-btn.opt-wrong { border-color: #fb7185; background: rgba(244, 63, 94, .22); color: #ffe4e6; }
+    .opt-key {
+      flex: none;
       font-family: 'Jua', sans-serif;
+      font-size: .72rem;
+      background: rgba(2, 6, 23, .85);
+      border: 1px solid rgba(148, 163, 184, .3);
+      padding: .1rem .45rem;
+      border-radius: .4rem;
+      color: #94a3b8;
     }
-    /* 픽셀 렌더링 스타일 */
-    canvas {
-      image-rendering: pixelated;
-      image-rendering: crisp-edges;
+
+    /* 터치 패드 */
+    .pad-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      height: 100%;
+      background: rgba(30, 41, 59, .92);
+      border: 1px solid rgba(100, 116, 139, .6);
+      border-radius: .65rem;
+      color: #cbd5e1;
+      font-size: 1rem;
+      line-height: 1;
+      touch-action: none;
+      cursor: pointer;
+      transition: background .1s, transform .1s;
     }
-    /* 커스텀 버튼 효과 */
-    .btn-bounce {
-      transition: transform 0.1s ease, box-shadow 0.1s ease;
+    .pad-btn:active, .pad-btn.held { background: rgba(71, 85, 105, .98); transform: scale(.93); }
+    #dash-btn {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 1px;
+      width: 4.7rem;
+      height: 4.7rem;
+      border-radius: 9999px;
+      background: radial-gradient(circle at 35% 30%, #67e8f9, #0e7490 72%);
+      border: 2px solid rgba(165, 243, 252, .75);
+      color: #ecfeff;
+      font-family: 'Jua', sans-serif;
+      font-size: 1.3rem;
+      line-height: 1;
+      box-shadow: 0 8px 24px -6px rgba(34, 211, 238, .8), inset 0 -3px 0 rgba(0, 0, 0, .25);
+      touch-action: none;
+      cursor: pointer;
+      transition: transform .1s ease, filter .15s;
     }
-    .btn-bounce:active {
-      transform: translateY(4px);
-      box-shadow: 0 1px 0 rgba(0,0,0,0.3) !important;
+    #dash-btn:active { transform: scale(.92); }
+    #dash-btn small { font-family: 'Gowun Dodum', sans-serif; font-size: .62rem; opacity: .9; }
+    #dash-btn.cooling { filter: grayscale(.55) brightness(.75); }
+
+    /* 애니메이션 */
+    @keyframes floaty {
+      0%, 100% { transform: translateY(0) rotate(-3deg); }
+      50% { transform: translateY(-10px) rotate(3deg); }
     }
-    /* 깜빡임 애니메이션 */
-    @keyframes pulse-slow {
-      0%, 100% { opacity: 1; transform: scale(1); }
-      50% { opacity: 0.8; transform: scale(1.03); }
+    .floaty { animation: floaty 3.4s ease-in-out infinite; }
+    @keyframes pop-in {
+      from { opacity: 0; transform: scale(.86) translateY(14px); }
+      to { opacity: 1; transform: none; }
     }
-    .animate-pulse-slow {
-      animation: pulse-slow 2s infinite ease-in-out;
+    .pop-in { animation: pop-in .32s cubic-bezier(.2, 1.35, .42, 1) both; }
+    @keyframes banner-show {
+      0% { opacity: 0; transform: translate(-50%, -22px) scale(.86); }
+      14% { opacity: 1; transform: translate(-50%, 0) scale(1); }
+      78% { opacity: 1; transform: translate(-50%, 0) scale(1.01); }
+      100% { opacity: 0; transform: translate(-50%, -12px) scale(1.04); }
+    }
+    #era-banner.show { animation: banner-show 2.3s ease both; }
+    @keyframes toast-show {
+      0% { opacity: 0; transform: translate(-50%, 12px); }
+      8% { opacity: 1; transform: translate(-50%, 0); }
+      86% { opacity: 1; transform: translate(-50%, 0); }
+      100% { opacity: 0; transform: translate(-50%, -8px); }
+    }
+    #toast.show { animation: toast-show 3.4s ease both; }
+    @keyframes heart-pop {
+      0% { transform: scale(1); }
+      40% { transform: scale(1.5) rotate(-8deg); }
+      100% { transform: scale(1); }
+    }
+    .heart-pop { animation: heart-pop .35s ease; }
+    @media (prefers-reduced-motion: reduce) {
+      .floaty { animation: none; }
     }
   </style>
 </head>
-<body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col items-center justify-center p-2 sm:p-4 overflow-x-hidden">
+<body class="min-h-screen flex flex-col items-center justify-center p-2 sm:p-4">
 
-  <!-- 메인 게임 컨테이너 -->
-  <div class="relative w-full max-w-4xl bg-slate-800 rounded-2xl shadow-2xl border-4 border-amber-500/40 overflow-hidden flex flex-col items-center">
-    
-    <!-- Top Header (HUD) -->
-    <header id="hud" class="w-full bg-slate-950/80 px-4 py-3 flex items-center justify-between border-b border-slate-700 hidden z-10">
-      <div class="flex items-center gap-3">
-        <span id="player-avatar-badge" class="text-2xl bg-slate-800 p-1 rounded-lg border border-slate-600">👦</span>
-        <div>
-          <div class="text-xs text-amber-400 font-title">탐험 대원</div>
-          <div id="player-name-display" class="font-bold text-sm text-slate-200">탐험가</div>
-        </div>
-      </div>
-      
-      <div class="flex items-center gap-2 sm:gap-4">
-        <div class="bg-amber-950/60 border border-amber-500/50 px-3 py-1 rounded-full flex items-center gap-1.5">
-          <span class="text-amber-400 font-title text-sm">시대:</span>
-          <span id="era-badge" class="font-title text-amber-300 text-sm">선사 시대</span>
-        </div>
-        <div class="bg-indigo-950/60 border border-indigo-500/50 px-3 py-1 rounded-full flex items-center gap-1.5">
-          <span class="text-indigo-300 font-title text-sm">점수:</span>
-          <span id="score-display" class="font-title text-indigo-200 text-sm">0</span>
-        </div>
-      </div>
-    </header>
+  <div class="w-full max-w-5xl">
+    <div class="game-frame relative overflow-hidden rounded-3xl border-2 border-amber-400/25 bg-slate-950/80">
 
-    <!-- Canvas Screen Area -->
-    <div class="relative w-full aspect-[4/3] sm:aspect-[16/9] max-h-[600px] bg-black flex items-center justify-center overflow-hidden">
-      <canvas id="gameCanvas" width="900" height="500" class="w-full h-full object-contain"></canvas>
-
-      <!-- Overlay Screens inside Container -->
-      
-      <!-- 1. Character Select Screen Overlay -->
-      <div id="screen-character-select" class="absolute inset-0 bg-slate-950/95 flex flex-col items-center justify-center p-6 text-center z-20">
-        <h1 class="text-3xl sm:text-5xl font-title text-amber-400 mb-2 drop-shadow-[0_4px_10px_rgba(245,158,11,0.3)]">
-          시공간 탐험대: 역사를 구하라!
-        </h1>
-        <p class="text-slate-300 text-sm sm:text-base mb-8 max-w-lg">
-          도깨비들이 시간의 역사를 어지럽히고 있어요!<br>탐험 대원이 되어 시공간 문을 통해 역사를 바로잡아주세요.
-        </p>
-
-        <h2 class="text-xl font-title text-amber-200 mb-6">탐험할 캐릭터를 선택하세요</h2>
-
-        <div class="flex flex-row gap-6 sm:gap-10 mb-8">
-          <!-- Boy Selection -->
-          <button onclick="selectCharacter('BOY')" class="group flex flex-col items-center bg-slate-800 hover:bg-indigo-900/50 border-4 border-indigo-500/40 hover:border-indigo-400 rounded-2xl p-4 sm:p-6 transition-all duration-200 transform hover:-translate-y-2 w-36 sm:w-44 shadow-lg hover:shadow-indigo-500/20">
-            <div class="w-20 h-20 sm:w-24 sm:h-24 bg-indigo-900/60 rounded-full flex items-center justify-center text-5xl sm:text-6xl mb-3 border-2 border-indigo-400 group-hover:scale-110 transition-transform">
-              👦
-            </div>
-            <span class="font-title text-lg sm:text-xl text-indigo-200">남학생 탐험가</span>
-          </button>
-
-          <!-- Girl Selection -->
-          <button onclick="selectCharacter('GIRL')" class="group flex flex-col items-center bg-slate-800 hover:bg-rose-900/50 border-4 border-rose-500/40 hover:border-rose-400 rounded-2xl p-4 sm:p-6 transition-all duration-200 transform hover:-translate-y-2 w-36 sm:w-44 shadow-lg hover:shadow-rose-500/20">
-            <div class="w-20 h-20 sm:w-24 sm:h-24 bg-rose-900/60 rounded-full flex items-center justify-center text-5xl sm:text-6xl mb-3 border-2 border-rose-400 group-hover:scale-110 transition-transform">
-              👧
-            </div>
-            <span class="font-title text-lg sm:text-xl text-rose-200">여학생 탐험가</span>
-          </button>
-        </div>
-
-        <div class="text-xs text-slate-400 bg-slate-900/80 px-4 py-2 rounded-full border border-slate-700">
-          💡 방향키나 화면 조이스틱으로 이동하고 도깨비를 피해 포탈로 가세요!
-        </div>
-      </div>
-
-      <!-- 2. Quiz Modal Screen -->
-      <div id="screen-quiz" class="absolute inset-0 bg-slate-950/90 backdrop-blur-sm flex flex-col items-center justify-center p-4 sm:p-6 z-30 hidden">
-        <div class="w-full max-w-2xl bg-slate-900 border-2 border-amber-500/60 rounded-2xl p-5 sm:p-7 shadow-2xl flex flex-col gap-4 relative animate-pulse-slow">
-          
-          <!-- Retry Warning Badge -->
-          <div id="quiz-retry-badge" class="hidden bg-rose-900/80 border border-rose-500 text-rose-200 text-xs sm:text-sm px-4 py-2 rounded-xl text-center font-bold flex items-center justify-center gap-2">
-            <span>⚠️</span> <span>아쉽네요! 복습 문제를 풀어 개념을 다시 확인해 봅시다!</span>
+      <!-- ===== HUD ===== -->
+      <header id="hud" class="is-hidden z-10 flex w-full flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-white/10 bg-slate-950/90 px-3 py-2 sm:px-5 sm:py-2.5">
+        <div class="flex items-center gap-2.5">
+          <span id="player-avatar-badge" class="flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-xl">👦</span>
+          <div class="leading-tight">
+            <div class="text-[9px] uppercase tracking-[.2em] text-amber-400/80 font-title">탐험 대원</div>
+            <div id="player-name-display" class="text-xs font-bold text-slate-100 sm:text-sm">탐험가</div>
           </div>
+          <div id="hearts" class="ml-1 flex gap-0.5 text-base sm:text-lg"></div>
+        </div>
 
-          <!-- Era Header -->
-          <div class="flex justify-between items-center border-b border-slate-800 pb-3">
-            <span id="quiz-era-tag" class="bg-amber-500/20 border border-amber-500/40 text-amber-300 font-title text-sm px-3 py-1 rounded-lg">
-              시대관
+        <div class="flex flex-wrap items-center gap-1.5 text-[11px] sm:gap-2.5 sm:text-xs">
+          <div class="rounded-full border border-amber-400/25 bg-amber-400/10 px-2.5 py-1">
+            <span class="font-title text-amber-300">시대</span>
+            <span id="era-badge" class="font-bold text-slate-100">선사 시대</span>
+          </div>
+          <div class="rounded-full border border-indigo-400/25 bg-indigo-500/10 px-2.5 py-1">
+            <span class="font-title text-indigo-300">점수</span>
+            <span id="score-display" class="font-bold text-white">0</span>
+          </div>
+          <div id="combo-badge" class="is-hidden rounded-full border border-orange-400/40 bg-orange-500/15 px-2.5 py-1">
+            <span class="font-bold text-orange-300">🔥 x<span id="combo-display">2</span></span>
+          </div>
+          <div class="rounded-full border border-cyan-300/25 bg-cyan-500/10 px-2.5 py-1 text-cyan-200">
+            <span class="font-title">유물</span>
+            <span id="art-count" class="font-bold">0 / 3</span>
+          </div>
+          <div class="flex items-center gap-1.5 rounded-full border border-cyan-400/25 bg-cyan-500/10 px-2.5 py-1">
+            <span class="font-title text-cyan-300">⚡</span>
+            <span class="inline-block h-1.5 w-10 overflow-hidden rounded-full bg-slate-700 sm:w-12">
+              <span id="dash-fill" class="block h-full w-full rounded-full bg-gradient-to-r from-cyan-400 to-sky-300"></span>
             </span>
-            <span id="quiz-type-tag" class="text-xs text-slate-400">도전 문제</span>
+          </div>
+          <button id="sound-btn" class="btn-bounce flex h-7 w-7 items-center justify-center rounded-full border border-white/15 bg-white/5 text-xs hover:bg-white/10" aria-label="소리 켜기/끄기">🔊</button>
+        </div>
+      </header>
+
+      <!-- ===== 게임 화면 ===== -->
+      <div class="relative aspect-video w-full overflow-hidden bg-black">
+        <canvas id="gameCanvas" width="960" height="540" class="absolute inset-0 h-full w-full"></canvas>
+
+        <!-- 1. 캐릭터 선택 -->
+        <div id="screen-select" class="absolute inset-0 z-20 flex flex-col items-center justify-center gap-2.5 overflow-y-auto bg-[#070b16]/80 p-4 text-center backdrop-blur-[3px] sm:gap-4 sm:p-6">
+          <button id="sound-btn-select" class="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full border border-white/15 bg-black/40 text-sm hover:bg-black/60" aria-label="소리 켜기/끄기">🔊</button>
+
+          <div class="floaty text-3xl sm:text-5xl">🌀</div>
+          <h1 class="font-title text-2xl leading-tight sm:text-5xl">
+            <span class="title-glow">시공간 탐험대</span>
+            <span class="mt-0.5 block text-sm text-amber-200/90 sm:mt-1 sm:text-2xl">역사를 구하라!</span>
+          </h1>
+          <p class="max-w-md text-[11px] leading-relaxed text-slate-300/90 sm:text-sm">
+            도깨비들이 시간의 역사를 어지럽히고 있어요!<br>
+            시간의 문을 찾아가 시대별 퀴즈를 풀고 역사를 바로잡아 주세요.
+          </p>
+
+          <div class="flex items-center gap-2">
+            <span class="text-[10px] text-slate-400 sm:text-xs">난이도</span>
+            <div id="diff-group" class="flex gap-1.5">
+              <button class="diff-btn" data-diff="easy">🐣 쉬움</button>
+              <button class="diff-btn active" data-diff="normal">⚔️ 보통</button>
+              <button class="diff-btn" data-diff="hard">🔥 어려움</button>
+            </div>
           </div>
 
-          <!-- Question Text -->
-          <div class="bg-slate-950 border border-slate-800 rounded-xl p-4 sm:p-5">
-            <h3 id="quiz-question" class="text-lg sm:text-xl font-bold text-slate-100 leading-relaxed">
-              문제가 여기에 표시됩니다.
-            </h3>
+          <div class="flex flex-row gap-3 sm:gap-7">
+            <button data-gender="BOY" class="char-card boy group flex w-32 flex-col items-center gap-1.5 rounded-2xl border-2 border-indigo-400/30 bg-slate-900/85 p-3 sm:w-44 sm:gap-2.5 sm:p-5">
+              <div class="flex h-16 w-16 items-center justify-center rounded-full border-2 border-indigo-400/40 bg-indigo-500/20 text-4xl transition-transform group-hover:scale-110 sm:h-24 sm:w-24 sm:text-5xl">👦</div>
+              <span class="font-title text-sm text-indigo-100 sm:text-lg">남학생 탐험가</span>
+              <span class="rounded-full bg-indigo-500/20 px-2 py-0.5 text-[9px] text-indigo-200 sm:text-[10px]">용감한 리더</span>
+            </button>
+            <button data-gender="GIRL" class="char-card girl group flex w-32 flex-col items-center gap-1.5 rounded-2xl border-2 border-rose-400/30 bg-slate-900/85 p-3 sm:w-44 sm:gap-2.5 sm:p-5">
+              <div class="flex h-16 w-16 items-center justify-center rounded-full border-2 border-rose-400/40 bg-rose-500/20 text-4xl transition-transform group-hover:scale-110 sm:h-24 sm:w-24 sm:text-5xl">👧</div>
+              <span class="font-title text-sm text-rose-100 sm:text-lg">여학생 탐험가</span>
+              <span class="rounded-full bg-rose-500/20 px-2 py-0.5 text-[9px] text-rose-200 sm:text-[10px]">지혜로운 탐구자</span>
+            </button>
           </div>
 
-          <!-- Choice Options -->
-          <div id="quiz-options" class="grid grid-cols-1 gap-2.5 sm:gap-3 mt-1">
-            <!-- Options dynamically injected -->
+          <div class="flex flex-wrap items-center justify-center gap-1.5 text-[9px] text-slate-400 sm:text-[11px]">
+            <span class="rounded-full border border-white/10 bg-white/5 px-2.5 py-1">🏅 최고 점수 <b id="best-score-select" class="text-amber-300">0</b></span>
+            <span class="rounded-full border border-white/10 bg-white/5 px-2.5 py-1">⌨️ 방향키 · WASD 이동</span>
+            <span class="rounded-full border border-white/10 bg-white/5 px-2.5 py-1">⚡ Space 대시</span>
+            <span class="rounded-full border border-white/10 bg-white/5 px-2.5 py-1">👹 도깨비는 대시로 물리치기</span>
           </div>
         </div>
-      </div>
 
-      <!-- 3. Game Win Screen -->
-      <div id="screen-win" class="absolute inset-0 bg-slate-950/95 flex flex-col items-center justify-center p-6 text-center z-40 hidden">
-        <div class="text-6xl mb-4 animate-bounce">🏆</div>
-        <h2 class="text-3xl sm:text-5xl font-title text-amber-400 mb-2">시공간 탐험 성공!</h2>
-        <p class="text-slate-300 text-sm sm:text-base mb-6">
-          도깨비를 물리치고 초등학교 5학년 역사를 모두 수호했습니다!
-        </p>
-
-        <div class="bg-slate-900 border-2 border-amber-500/40 rounded-2xl p-6 mb-8 w-full max-w-xs shadow-xl">
-          <div class="text-slate-400 text-sm mb-1">최종 탐험 점수</div>
-          <div id="final-score" class="text-4xl font-title text-amber-300">0 점</div>
+        <!-- 2. 퀴즈 -->
+        <div id="screen-quiz" class="is-hidden absolute inset-0 z-30 flex items-center justify-center overflow-y-auto bg-[#070b16]/85 p-3 backdrop-blur-sm sm:p-6">
+          <div id="quiz-card" class="w-full max-w-2xl rounded-2xl border-2 border-amber-400/40 bg-gradient-to-b from-slate-900 to-slate-950 p-4 shadow-2xl sm:p-6">
+            <div id="quiz-retry-badge" class="is-hidden mb-2 flex items-center justify-center gap-2 rounded-xl border border-rose-400/50 bg-rose-500/15 px-3 py-2 text-center text-[11px] font-bold text-rose-200 sm:text-xs">
+              <span>⚠️</span><span>아쉽네요! 복습 문제로 개념을 다시 잡아 봐요.</span>
+            </div>
+            <div class="flex items-center justify-between border-b border-white/10 pb-2">
+              <span id="quiz-era-tag" class="rounded-lg border border-amber-400/40 bg-amber-400/10 px-2.5 py-1 font-title text-[11px] text-amber-300 sm:text-xs">시대관</span>
+              <span id="quiz-type-tag" class="text-[10px] text-slate-400 sm:text-[11px]">시대 도전 문제</span>
+            </div>
+            <div class="my-3 rounded-xl border border-white/10 bg-black/40 p-3 sm:p-4">
+              <h3 id="quiz-question" class="text-sm font-bold leading-relaxed text-slate-100 sm:text-lg">문제가 여기에 표시됩니다.</h3>
+              <p class="mt-1.5 text-[10px] text-slate-500">💡 키보드 1~4로도 답할 수 있어요</p>
+            </div>
+            <div id="quiz-options" class="grid grid-cols-1 gap-2"></div>
+            <div id="quiz-explain" class="is-hidden mt-3 rounded-xl border border-emerald-400/30 bg-emerald-400/10 p-3">
+              <div id="quiz-result-title" class="font-title text-sm text-emerald-300">정답!</div>
+              <p id="quiz-explain-text" class="mt-1 text-[11px] leading-relaxed text-slate-200 sm:text-xs"></p>
+              <button id="quiz-continue" class="btn-bounce mt-2.5 w-full rounded-lg bg-amber-400 px-4 py-2 font-title text-sm font-bold text-slate-950 shadow-[0_3px_0_#b45309] hover:bg-amber-300">다음</button>
+            </div>
+          </div>
         </div>
 
-        <button onclick="resetGame()" class="btn-bounce bg-amber-500 hover:bg-amber-400 text-slate-950 font-title text-lg px-8 py-3 rounded-xl shadow-[0_4px_0_#b45309] font-bold">
-          🔄 처음부터 다시 도전하기
-        </button>
+        <!-- 3. 승리 -->
+        <div id="screen-win" class="is-hidden absolute inset-0 z-40 flex items-center justify-center overflow-y-auto bg-[#070b16]/92 p-4 text-center backdrop-blur-sm">
+          <div class="w-full max-w-md rounded-2xl border-2 border-amber-400/40 bg-gradient-to-b from-slate-900 to-slate-950 p-5 shadow-2xl sm:p-7">
+            <div class="text-4xl sm:text-5xl">🏆</div>
+            <h2 class="font-title mt-1.5 text-2xl text-amber-300 sm:text-3xl">시공간 탐험 성공!</h2>
+            <p class="mt-1 text-[11px] text-slate-300 sm:text-sm">도깨비를 물리치고 초등 5학년 역사를 모두 수호했어요!</p>
+            <div class="my-4 rounded-xl border border-white/10 bg-black/30 p-3.5">
+              <div class="text-[10px] text-slate-400">최종 탐험 점수</div>
+              <div id="final-score" class="font-title text-3xl text-amber-300 sm:text-4xl">0 점</div>
+              <div id="new-record" class="is-hidden mt-1 inline-block rounded-full bg-rose-500/20 px-3 py-0.5 text-[10px] font-bold text-rose-300">🎉 신기록 달성!</div>
+              <div class="mt-3 grid grid-cols-2 gap-2 text-[11px]">
+                <div class="rounded-lg bg-white/5 p-2">
+                  <div class="text-slate-400">최고 점수</div>
+                  <div id="final-best" class="font-title text-amber-200">0 점</div>
+                </div>
+                <div class="rounded-lg bg-white/5 p-2">
+                  <div class="text-slate-400">수집한 유물</div>
+                  <div id="final-artifacts" class="font-title text-cyan-200">0 / 12</div>
+                </div>
+              </div>
+            </div>
+            <button id="btn-restart" class="btn-bounce w-full rounded-xl bg-amber-400 px-6 py-3 font-title text-base font-bold text-slate-950 shadow-[0_4px_0_#b45309] hover:bg-amber-300">🔄 다시 도전하기</button>
+          </div>
+        </div>
+
+        <!-- 시대 배너 / 토스트 -->
+        <div id="era-banner" class="pointer-events-none absolute left-1/2 top-[16%] z-20 -translate-x-1/2 text-center opacity-0"></div>
+        <div id="toast" class="pointer-events-none absolute bottom-[15%] left-1/2 z-20 w-[min(92%,26rem)] -translate-x-1/2 rounded-xl border border-cyan-300/40 bg-slate-950/92 px-4 py-2 text-center opacity-0 shadow-xl backdrop-blur"></div>
       </div>
 
+      <!-- ===== 터치 조작 ===== -->
+      <div id="touch-controls" class="is-hidden flex w-full items-center justify-between gap-4 border-t border-white/10 bg-slate-950/95 px-4 py-2.5">
+        <div class="hidden text-[11px] leading-relaxed text-slate-400 font-title sm:block">
+          <div>🎮 방향키 / WASD 이동</div>
+          <div>⚡ Space · Shift 대시</div>
+        </div>
+        <div class="mx-auto flex items-center gap-5 sm:mx-0">
+          <div class="grid h-28 w-32 grid-cols-3 grid-rows-3 gap-1">
+            <div></div>
+            <button class="pad-btn" data-dir="up">▲</button>
+            <div></div>
+            <button class="pad-btn" data-dir="left">◀</button>
+            <div></div>
+            <button class="pad-btn" data-dir="right">▶</button>
+            <div></div>
+            <button class="pad-btn" data-dir="down">▼</button>
+            <div></div>
+          </div>
+          <button id="dash-btn">⚡<small>대시</small></button>
+        </div>
+      </div>
     </div>
 
-    <!-- On-Screen Touch Controls (Mobile Friendly) -->
-    <div id="touch-controls" class="w-full bg-slate-950 px-4 py-3 border-t border-slate-800 flex justify-between items-center hidden">
-      <div class="text-xs text-slate-400 font-title flex items-center gap-1">
-        <span>🎮 조작:</span> <span class="hidden sm:inline">키보드 방향키 또는 버튼</span>
-      </div>
-      
-      <!-- Directional Buttons -->
-      <div class="grid grid-cols-3 gap-1.5 w-36 h-28">
-        <div></div>
-        <button ontouchstart="handleTouch('UP')" onmousedown="handleTouch('UP')" class="bg-slate-800 active:bg-slate-700 border border-slate-600 rounded-lg flex items-center justify-center text-lg active:scale-95 text-slate-200">▲</button>
-        <div></div>
-        <button ontouchstart="handleTouch('LEFT')" onmousedown="handleTouch('LEFT')" class="bg-slate-800 active:bg-slate-700 border border-slate-600 rounded-lg flex items-center justify-center text-lg active:scale-95 text-slate-200">◀</button>
-        <button ontouchstart="handleTouch('DOWN')" onmousedown="handleTouch('DOWN')" class="bg-slate-800 active:bg-slate-700 border border-slate-600 rounded-lg flex items-center justify-center text-lg active:scale-95 text-slate-200">▼</button>
-        <button ontouchstart="handleTouch('RIGHT')" onmousedown="handleTouch('RIGHT')" class="bg-slate-800 active:bg-slate-700 border border-slate-600 rounded-lg flex items-center justify-center text-lg active:scale-95 text-slate-200">▶</button>
-      </div>
-    </div>
+    <p class="mt-2 text-center text-[10px] leading-relaxed text-slate-500">
+      초등 5학년 역사 연계 · 도깨비를 대시로 물리치고 유물을 모아 점수를 높여 보세요!
+    </p>
   </div>
 
   <script>
-    // --- 1. 역사 문제 데이터베이스 (초등 5학년 교육과정 연계) ---
+    'use strict';
+    /* =========================================================
+       0. 유틸리티
+    ========================================================= */
+    const $ = id => document.getElementById(id);
+    const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
+    const TAU = Math.PI * 2;
+    const rnd = (a, b) => a + Math.random() * (b - a);
+    const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+
+    function mulberry32(a) {
+      return function () {
+        a |= 0; a = (a + 0x6D2B79F5) | 0;
+        let t = Math.imul(a ^ (a >>> 15), 1 | a);
+        t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+      };
+    }
+
+    /* =========================================================
+       1. 역사 문제 데이터 (초등 5학년 교육과정 연계)
+    ========================================================= */
     const QUESTION_DATABASE = [
       {
-        era: "1. 선사 시대",
-        bgColor: "#33261a",
-        wallColor: "#4a3828",
-        floorColor: "#261c13",
+        era: '1. 선사 시대',
         primary: {
-          question: "Q1. 빗살무늬 토기를 만들고 농경과 정착 생활을 시작한 시대는 언제일까요?",
-          options: ["구석기 시대", "신석기 시대", "청동기 시대", "조선 시대"],
-          answer: 1
+          question: 'Q1. 빗살무늬 토기를 만들고 농경과 정착 생활을 시작한 시대는 언제일까요?',
+          options: ['구석기 시대', '신석기 시대', '청동기 시대', '조선 시대'],
+          answer: 1,
+          explain: '신석기 시대 사람들은 농사를 짓고 한곳에 정착했어요. 음식을 저장하거나 조리할 때 빗살무늬 토기를 사용했지요.'
         },
         retry: {
-          question: "[복습 퀴즈] 신석기 시대의 대표적인 유물로 음식을 저장하던 토기는 무엇일까요?",
-          options: ["빗살무늬 토기", "백자", "고려청자", "민무늬 토기"],
-          answer: 0
+          question: '[복습] 신석기 시대의 대표 유물로, 음식을 저장하던 토기는 무엇일까요?',
+          options: ['빗살무늬 토기', '백자', '고려청자', '민무늬 토기'],
+          answer: 0,
+          explain: '빗살무늬 토기는 바닥부터 입구까지 빗살처럼 생긴 무늬가 새겨진 신석기 시대의 대표 토기예요.'
         }
       },
       {
-        era: "2. 삼국 시대",
-        bgColor: "#1a2c38",
-        wallColor: "#284457",
-        floorColor: "#132029",
+        era: '2. 삼국 시대',
         primary: {
-          question: "Q2. 고구려의 영토를 크게 넓히고 만주벌판까지 진출한 왕은 누구일까요?",
-          options: ["온조왕", "세종대왕", "광개토대왕", "진흥왕"],
-          answer: 2
+          question: 'Q2. 고구려의 영토를 크게 넓히고 만주벌판까지 진출한 왕은 누구일까요?',
+          options: ['온조왕', '세종대왕', '광개토대왕', '진흥왕'],
+          answer: 2,
+          explain: '광개토대왕은 고구려 19대 왕으로, 만주와 한반도 북부까지 영토를 크게 넓힌 위대한 왕이에요.'
         },
         retry: {
-          question: "[복습 퀴즈] 광개토대왕의 위대한 영토 확장 업적이 적혀 있는 거대한 비석은 무엇일까요?",
-          options: ["북한산 순수비", "광개토대왕릉비", "황초령비", "무령왕릉비"],
-          answer: 1
+          question: '[복습] 광개토대왕의 영토 확장 업적이 자세히 적혀 있는 거대한 비석은 무엇일까요?',
+          options: ['북한산 순수비', '광개토대왕릉비', '황초령비', '무령왕릉비'],
+          answer: 1,
+          explain: '광개토대왕릉비는 높이 약 6m에 이르는 거대한 비석으로, 왕의 업적을 자세히 기록했어요.'
         }
       },
       {
-        era: "3. 조선 시대",
-        bgColor: "#38311a",
-        wallColor: "#574c28",
-        floorColor: "#292413",
+        era: '3. 조선 시대',
         primary: {
-          question: "Q3. 백성들이 쉽게 글을 읽고 쓸 수 있도록 훈민정음(한글)을 창제하신 왕은 누구일까요?",
-          options: ["태조 이성계", "세종대왕", "정조", "영조"],
-          answer: 1
+          question: 'Q3. 백성들이 쉽게 글을 읽고 쓸 수 있도록 훈민정음(한글)을 창제하신 왕은 누구일까요?',
+          options: ['태조 이성계', '세종대왕', '정조', '영조'],
+          answer: 1,
+          explain: '세종대왕은 1443년 백성이 쉽게 익힐 수 있는 훈민정음을 만들고, 1446년에 세상에 널리 알렸어요.'
         },
         retry: {
-          question: "[복습 퀴즈] 훈민정음은 '○○을 가르치는 바른 소리'라는 뜻입니다. ○○은 무엇일까요?",
-          options: ["백성", "신하", "수령", "양반"],
-          answer: 0
+          question: '[복습] 훈민정음은 "○○을 가르치는 바른 소리"라는 뜻이에요. ○○은 무엇일까요?',
+          options: ['백성', '신하', '수령', '양반'],
+          answer: 0,
+          explain: '훈민정음은 "백성을 가르치는 바른 소리"라는 뜻이에요. 어려운 한자를 모르는 백성도 글을 읽고 쓸 수 있게 했지요.'
         }
       },
       {
-        era: "4. 근현대",
-        bgColor: "#1a3824",
-        wallColor: "#285737",
-        floorColor: "#13291b",
+        era: '4. 근현대',
         primary: {
-          question: "Q4. 1919년 3월 1일, 전국적으로 일어난 일제 강점기 최대의 비폭력 독립운동은 무엇일까요?",
-          options: ["6·25 전쟁", "3·1 운동", "8·15 광복", "4·19 혁명"],
-          answer: 1
+          question: 'Q4. 1919년 3월 1일, 전국적으로 일어난 일제 강점기 최대의 비폭력 독립운동은 무엇일까요?',
+          options: ['6·25 전쟁', '3·1 운동', '8·15 광복', '4·19 혁명'],
+          answer: 1,
+          explain: '3·1 운동은 1919년 3월 1일, 전국 곳곳에서 만세 시위로 일어난 비폭력 독립운동이에요.'
         },
         retry: {
-          question: "[복습 퀴즈] 3·1 운동 때 유관순 열사와 사람들이 손에 들고 만세를 외친 국기는 무엇일까요?",
-          options: ["무궁화", "태극기", "촛불", "단군기"],
-          answer: 1
+          question: '[복습] 3·1 운동 때 사람들이 손에 들고 만세를 외친 깃발은 무엇일까요?',
+          options: ['무궁화', '태극기', '촛불', '단군기'],
+          answer: 1,
+          explain: '3·1 운동 당일과 이후 시위에서 사람들은 태극기를 흔들며 "대한 독립 만세"를 외쳤어요.'
         }
       }
     ];
 
-    // --- 2. 게임 상태 변수 ---
-    const canvas = document.getElementById('gameCanvas');
-    const ctx = canvas.getContext('2d');
+    /* =========================================================
+       2. 시대별 테마 (색 · 배경 장식)
+    ========================================================= */
+    const THEMES = [
+      {
+        era: '1. 선사 시대',
+        subtitle: '불씨가 타오르는 동굴',
+        sky: ['#2a1206', '#7c2d12', '#f59e0b'],
+        glow: 'rgba(251, 146, 60, .38)',
+        far: '#3a1a0b', mid: '#552611',
+        ground: '#180d06', groundTop: '#8a4b1e',
+        accent: '#fb923c', accent2: '#fde68a',
+        dust: 'rgba(253, 186, 116, .9)',
+        deco: 'cave'
+      },
+      {
+        era: '2. 삼국 시대',
+        subtitle: '별이 쏟아지는 사찰',
+        sky: ['#04101f', '#0b2440', '#1e3a5f'],
+        glow: 'rgba(96, 165, 250, .32)',
+        far: '#0a1b2e', mid: '#12304f',
+        ground: '#061320', groundTop: '#2b5b86',
+        accent: '#60a5fa', accent2: '#c7d2fe',
+        dust: 'rgba(147, 197, 253, .9)',
+        deco: 'temple'
+      },
+      {
+        era: '3. 조선 시대',
+        subtitle: '꽃잎 흩날리는 궁궐',
+        sky: ['#241033', '#7f3b6b', '#fbcfe8'],
+        glow: 'rgba(251, 191, 36, .35)',
+        far: '#331b3a', mid: '#553057',
+        ground: '#1a0f1e', groundTop: '#a5723a',
+        accent: '#fbbf24', accent2: '#fde68a',
+        dust: 'rgba(253, 230, 138, .9)',
+        deco: 'palace'
+      },
+      {
+        era: '4. 근현대',
+        subtitle: '탐조등이 비추는 도시',
+        sky: ['#021b16', '#064e3b', '#34d399'],
+        glow: 'rgba(52, 211, 153, .3)',
+        far: '#04211a', mid: '#0a3f32',
+        ground: '#03110d', groundTop: '#1f7a5c',
+        accent: '#34d399', accent2: '#a7f3d0',
+        dust: 'rgba(167, 243, 208, .9)',
+        deco: 'modern'
+      }
+    ];
 
-    let gameState = "SELECT"; // SELECT, PLAY, QUIZ, WIN
-    let playerGender = "BOY";
+    /* =========================================================
+       3. 시대별 유물
+    ========================================================= */
+    const ARTIFACT_DATA = [
+      [
+        { x: 330, y: 215, shape: 'pot', color: '#d97706', label: '빗살무늬 토기', fact: '신석기 시대 사람들은 토기에 빗살 무늬를 새겨 음식을 저장했어요.' },
+        { x: 560, y: 402, shape: 'stone', color: '#94a3b8', label: '돌도끼', fact: '돌도끼는 나무를 베거나 땅을 일굴 때 쓴 신석기 시대의 중요한 도구예요.' },
+        { x: 742, y: 208, shape: 'jewel', color: '#fbbf24', label: '조개 목걸이', fact: '신석기 시대에는 조개껍데기를 엮어 멋진 목걸이를 만들었어요.' }
+      ],
+      [
+        { x: 318, y: 402, shape: 'crown', color: '#fcd34d', label: '신라 금관', fact: '신라 금관에는 나뭇가지와 사슴뿔을 닮은 장식이 달려 있어요.' },
+        { x: 538, y: 205, shape: 'stone', color: '#cbd5e1', label: '광개토대왕릉비 탁본', fact: '광개토대왕릉비에는 왕의 영토 확장 업적이 자세히 적혀 있어요.' },
+        { x: 766, y: 386, shape: 'jewel', color: '#f472b6', label: '무령왕릉 목걸이', fact: '무령왕릉에서 나온 목걸이는 백제 왕실의 화려한 공예 기술을 보여 줘요.' }
+      ],
+      [
+        { x: 326, y: 212, shape: 'book', color: '#1d4ed8', label: '훈민정음 해례본', fact: '훈민정음 해례본은 한글의 원리와 사용법을 설명한 책이에요.' },
+        { x: 542, y: 402, shape: 'pot', color: '#e2e8f0', label: '조선 백자', fact: '조선 백자는 하얀 바탕에 은은한 푸른빛이 도는 아름다운 도자기예요.' },
+        { x: 762, y: 214, shape: 'ship', color: '#b45309', label: '거북선 모형', fact: '거북선은 이순신 장군이 활약한 임진왜란 때 큰 힘을 발휘한 배예요.' }
+      ],
+      [
+        { x: 338, y: 208, shape: 'flag', color: '#f8fafc', label: '태극기', fact: '3·1 운동 때 사람들은 태극기를 들고 "대한 독립 만세"를 외쳤어요.' },
+        { x: 558, y: 400, shape: 'book', color: '#7c3aed', label: '독립신문', fact: '독립신문은 1896년 서재필이 만든 우리나라 최초의 한글 민간 신문이에요.' },
+        { x: 768, y: 216, shape: 'medal', color: '#fbbf24', label: '건국훈장', fact: '대한민국 정부는 나라를 위해 힘쓴 분들께 건국훈장을 수여해요.' }
+      ]
+    ];
+
+    /* =========================================================
+       4. 도깨비 배치 (시대별)
+    ========================================================= */
+    const DOK_LAYOUTS = [
+      [
+        { x: 390, y: 250, type: 'v', amp: 95, spd: 1.15, size: 46 },
+        { x: 588, y: 384, type: 'v', amp: 70, spd: -1.45, size: 44 },
+        { x: 748, y: 200, type: 'v', amp: 62, spd: 1.8, size: 40 }
+      ],
+      [
+        { x: 330, y: 224, type: 'v', amp: 110, spd: 1.2, size: 44 },
+        { x: 520, y: 398, type: 'h', amp: 100, spd: 1.0, size: 46 },
+        { x: 682, y: 252, type: 'v', amp: 90, spd: -1.35, size: 48 },
+        { x: 800, y: 414, type: 'v', amp: 46, spd: 2.0, size: 38 }
+      ],
+      [
+        { x: 322, y: 206, type: 'v', amp: 120, spd: 1.3, size: 44 },
+        { x: 498, y: 392, type: 'h', amp: 118, spd: 1.1, size: 46 },
+        { x: 688, y: 236, type: 'chase', size: 46 },
+        { x: 812, y: 418, type: 'v', amp: 48, spd: 2.2, size: 40 }
+      ],
+      [
+        { x: 306, y: 224, type: 'v', amp: 120, spd: 1.5, size: 42 },
+        { x: 470, y: 392, type: 'h', amp: 110, spd: 1.3, size: 44 },
+        { x: 648, y: 202, type: 'chase', size: 46 },
+        { x: 790, y: 382, type: 'chase', size: 42 }
+      ]
+    ];
+
+    const DIFFICULTY = {
+      easy:   { label: '쉬움',   speed: 0.75, hearts: 4, chase: 0.55 },
+      normal: { label: '보통',   speed: 1.0,  hearts: 3, chase: 1.0 },
+      hard:   { label: '어려움', speed: 1.35, hearts: 2, chase: 1.4 }
+    };
+
+    /* 테마별 별 · 먼지 · 구름 · 꽃잎 미리 생성 */
+    THEMES.forEach((th, i) => {
+      const r = mulberry32(9173 + i * 131);
+      th.stars = Array.from({ length: 70 }, () => ({ x: r() * 960, y: r() * 400, r: 0.6 + r() * 1.7, tw: r() * TAU }));
+      th.motes = Array.from({ length: 34 }, () => ({ x: r() * 960, y: r() * 540, r: 0.8 + r() * 2.2, sp: 8 + r() * 22, ph: r() * TAU }));
+      th.clouds = Array.from({ length: 5 }, () => ({ x: r() * 960, y: 70 + r() * 220, r: 30 + r() * 40, sp: 4 + r() * 8 }));
+      th.petals = Array.from({ length: 18 }, () => ({ x: r() * 960, y: r() * 540, sp: 22 + r() * 30, r: 3 + r() * 4, rot: 0.4 + r() * 0.8 }));
+    });
+
+    /* =========================================================
+       5. 캔버스 · 게임 상태
+    ========================================================= */
+    const canvas = $('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const W = canvas.width;
+    const H = canvas.height;
+
+    const PORTAL = { x: 872, y: 318, r: 58 };
+    const DASH_CD = 1.1;
+    const DASH_TIME = 0.17;
+    const DASH_SPEED = 880;
+    const GY = 486;
+
+    let state = 'SELECT';           // SELECT | PLAY | QUIZ | WIN
+    let playerGender = 'BOY';
+    let difficulty = 'normal';
     let score = 0;
+    let combo = 0;
     let currentQIdx = 0;
     let isRetry = false;
+    let hearts = 3;
+    let maxHearts = 3;
+    let eraArtifacts = 0;
+    let totalArtifacts = 0;
+    let t = 0;
+    let shake = 0;
+    let flash = 0;
+    let best = 0;
+    let muted = false;
 
-    // 플레이어 및 게임 객체 설정
+    try {
+      best = parseInt(localStorage.getItem('st_best') || '0', 10) || 0;
+      muted = localStorage.getItem('st_muted') === '1';
+    } catch (e) { /* 저장소 접근 불가 시 무시 */ }
+
     const player = {
-      x: 80,
-      y: 230,
-      width: 36,
-      height: 36,
-      speed: 4,
-      dirX: 0,
-      dirY: 0
+      x: 140, y: 318, vx: 0, vy: 0,
+      facing: 1, walk: 0,
+      dashing: 0, dashCd: 0,
+      invuln: 0,
+      dashDir: { x: 1, y: 0 },
+      trail: []
     };
 
-    const portal = {
-      x: 800,
-      y: 210,
-      width: 50,
-      height: 80,
-      pulse: 0
-    };
-
-    // 도깨비 3마리 설정
-    let dokkaebis = [
-      { x: 280, y: 120, width: 36, height: 36, speedY: 3.5, icon: '👹' },
-      { x: 480, y: 320, width: 36, height: 36, speedY: -4, icon: '👹' },
-      { x: 660, y: 180, width: 36, height: 36, speedY: 3, icon: '👹' }
-    ];
-
-    // 입력 키 관리
+    let doks = [];
+    let arts = [];
+    const parts = [];
+    const floaters = [];
     const keys = {};
+    const virt = { up: false, down: false, left: false, right: false };
+    let quizAnswered = false;
+    let quizPending = null;
 
-    // --- 3. 이벤트 리스너 ---
+    const currentTheme = () => THEMES[clamp(currentQIdx, 0, THEMES.length - 1)];
+
+    /* =========================================================
+       6. 사운드 (WebAudio 합성)
+    ========================================================= */
+    let actx = null;
+    function audioCtx() {
+      if (!actx) {
+        try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return null; }
+      }
+      if (actx.state === 'suspended') actx.resume();
+      return actx;
+    }
+    function tone(freq, dur = 0.12, type = 'sine', vol = 0.12, slide = 0, delay = 0) {
+      if (muted) return;
+      const ac = audioCtx();
+      if (!ac) return;
+      const t0 = ac.currentTime + delay;
+      const o = ac.createOscillator();
+      const g = ac.createGain();
+      o.type = type;
+      o.frequency.setValueAtTime(freq, t0);
+      if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(40, freq + slide), t0 + dur);
+      g.gain.setValueAtTime(0.0001, t0);
+      g.gain.exponentialRampToValueAtTime(vol, t0 + 0.012);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+      o.connect(g);
+      g.connect(ac.destination);
+      o.start(t0);
+      o.stop(t0 + dur + 0.03);
+    }
+    function sfx(name) {
+      switch (name) {
+        case 'click':   tone(620, 0.05, 'triangle', 0.05); break;
+        case 'dash':    tone(520, 0.13, 'sawtooth', 0.055, -300); break;
+        case 'pickup':  tone(880, 0.1, 'sine', 0.08); tone(1320, 0.13, 'sine', 0.06, 0, 0.06); break;
+        case 'stun':    tone(240, 0.16, 'square', 0.07, 200); tone(700, 0.1, 'triangle', 0.05, 300, 0.05); break;
+        case 'hit':     tone(170, 0.22, 'square', 0.09, -90); tone(95, 0.26, 'sawtooth', 0.07, -40, 0.03); break;
+        case 'correct': tone(660, 0.12, 'sine', 0.09); tone(880, 0.12, 'sine', 0.09, 0, 0.1); tone(1320, 0.2, 'sine', 0.08, 0, 0.2); break;
+        case 'wrong':   tone(220, 0.18, 'sawtooth', 0.08, -70); tone(160, 0.24, 'sawtooth', 0.08, -40, 0.08); break;
+        case 'era':     tone(392, 0.16, 'triangle', 0.07); tone(587, 0.18, 'triangle', 0.07, 0, 0.12); tone(784, 0.22, 'triangle', 0.06, 0, 0.24); break;
+        case 'win':     [523, 659, 784, 1046].forEach((f, i) => tone(f, 0.22, 'triangle', 0.08, 0, i * 0.14)); break;
+        case 'start':   tone(330, 0.14, 'sine', 0.07); tone(494, 0.14, 'sine', 0.07, 0, 0.1); tone(660, 0.2, 'sine', 0.07, 0, 0.2); break;
+      }
+    }
+
+    function syncSoundButtons() {
+      ['sound-btn', 'sound-btn-select'].forEach(id => {
+        const b = $(id);
+        if (b) b.textContent = muted ? '🔇' : '🔊';
+      });
+    }
+    function toggleMute() {
+      muted = !muted;
+      try { localStorage.setItem('st_muted', muted ? '1' : '0'); } catch (e) { /* ignore */ }
+      syncSoundButtons();
+      if (!muted) sfx('click');
+    }
+    /* =========================================================
+       7. 입력
+    ========================================================= */
+    function inputX() {
+      let v = 0;
+      if (keys['ArrowRight'] || keys['KeyD'] || virt.right) v += 1;
+      if (keys['ArrowLeft'] || keys['KeyA'] || virt.left) v -= 1;
+      return v;
+    }
+    function inputY() {
+      let v = 0;
+      if (keys['ArrowDown'] || keys['KeyS'] || virt.down) v += 1;
+      if (keys['ArrowUp'] || keys['KeyW'] || virt.up) v -= 1;
+      return v;
+    }
+
     window.addEventListener('keydown', e => {
+      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(e.code)) e.preventDefault();
       keys[e.code] = true;
+
+      if (state === 'QUIZ') {
+        if (/^(Digit|Numpad)[1-4]$/.test(e.code)) {
+          answerQuiz(parseInt(e.code.slice(-1), 10) - 1);
+        }
+        if ((e.code === 'Enter' || e.code === 'Space') && quizAnswered) continueQuiz();
+        return;
+      }
+      if (!e.repeat && (e.code === 'Space' || e.code === 'ShiftLeft' || e.code === 'ShiftRight')) tryDash();
     });
 
-    window.addEventListener('keyup', e => {
-      keys[e.code] = false;
+    window.addEventListener('keyup', e => { keys[e.code] = false; });
+    window.addEventListener('blur', () => {
+      Object.keys(keys).forEach(k => { keys[k] = false; });
+      virt.up = virt.down = virt.left = virt.right = false;
+      document.querySelectorAll('.pad-btn').forEach(b => b.classList.remove('held'));
     });
 
-    function handleTouch(dir) {
-      if (gameState !== "PLAY") return;
-      const step = 25;
-      if (dir === 'UP') player.y = Math.max(70, player.y - step);
-      if (dir === 'DOWN') player.y = Math.min(canvas.height - 50, player.y + step);
-      if (dir === 'LEFT') player.x = Math.max(20, player.x - step);
-      if (dir === 'RIGHT') player.x = Math.min(canvas.width - 50, player.x + step);
+    function tryDash() {
+      if (state !== 'PLAY') return;
+      if (player.dashCd > 0 || player.dashing > 0) return;
+      let ix = inputX(), iy = inputY();
+      if (ix === 0 && iy === 0) { ix = player.facing; iy = 0; }
+      const len = Math.hypot(ix, iy) || 1;
+      player.dashDir = { x: ix / len, y: iy / len };
+      player.dashing = DASH_TIME;
+      player.dashCd = DASH_CD;
+      player.invuln = Math.max(player.invuln, 0.3);
+      player.vx = 0;
+      player.vy = 0;
+      sfx('dash');
+      burst(player.x, player.y, currentTheme().accent2, 10, { speed: 190, gravity: 0, life: 0.35, size: 2.6 });
     }
 
-    // --- 4. 캐릭터 선택 및 초기화 ---
-    function selectCharacter(gender) {
-      playerGender = gender;
-      document.getElementById('screen-character-select').classList.add('hidden');
-      document.getElementById('hud').classList.remove('hidden');
-      document.getElementById('touch-controls').classList.remove('hidden');
+    /* =========================================================
+       8. 게임 시작 · 시대 진행
+    ========================================================= */
+    function beginEra(idx) {
+      currentQIdx = clamp(idx, 0, QUESTION_DATABASE.length - 1);
+      isRetry = false;
+      maxHearts = DIFFICULTY[difficulty].hearts;
+      hearts = maxHearts;
+      eraArtifacts = 0;
 
-      document.getElementById('player-avatar-badge').innerText = gender === 'BOY' ? '👦' : '👧';
-      document.getElementById('player-name-display').innerText = gender === 'BOY' ? '남학생 탐험가' : '여학생 탐험가';
+      player.x = 140;
+      player.y = 318;
+      player.vx = player.vy = 0;
+      player.dashing = 0;
+      player.dashCd = 0;
+      player.invuln = 1.0;
+      player.trail.length = 0;
 
-      resetLevel();
-      gameState = "PLAY";
-      requestAnimationFrame(gameLoop);
-    }
+      spawnDokkaebis();
+      spawnArtifacts();
+      parts.length = 0;
+      floaters.length = 0;
 
-    function resetLevel() {
-      player.x = 80;
-      player.y = 230;
-      
-      // 도깨비 위치 재설정
-      dokkaebis[0].y = 100 + Math.random() * 100;
-      dokkaebis[1].y = 300 - Math.random() * 100;
-      dokkaebis[2].y = 150 + Math.random() * 100;
-
+      state = 'PLAY';
       updateHUD();
+      const th = currentTheme();
+      showBanner(QUESTION_DATABASE[currentQIdx].era, th.subtitle);
+      sfx('era');
+      burst(PORTAL.x, PORTAL.y, th.accent2, 26, { speed: 180, gravity: 0, life: 0.8, size: 3 });
     }
 
-    function updateHUD() {
-      document.getElementById('score-display').innerText = score;
-      document.getElementById('era-badge').innerText = QUESTION_DATABASE[currentQIdx].era;
+    function spawnDokkaebis() {
+      const diff = DIFFICULTY[difficulty];
+      const layout = DOK_LAYOUTS[clamp(currentQIdx, 0, DOK_LAYOUTS.length - 1)];
+      doks = layout.map((d, i) => ({
+        x: d.x, y: d.y,
+        baseX: d.x, baseY: d.y,
+        type: d.type,
+        amp: d.amp || 0,
+        spd: (d.spd || 1) * diff.speed,
+        size: d.size,
+        phase: i * 1.7,
+        seed: i * 3.1,
+        stun: 0,
+        bob: 0
+      }));
     }
 
-    // --- 5. 메인 게임 루프 ---
-    function gameLoop() {
-      if (gameState === "PLAY") {
-        update();
-        render();
-      }
-      if (gameState !== "WIN") {
-        requestAnimationFrame(gameLoop);
-      }
+    function spawnArtifacts() {
+      const list = ARTIFACT_DATA[clamp(currentQIdx, 0, ARTIFACT_DATA.length - 1)];
+      arts = list.map((a, i) => Object.assign({}, a, { seed: i * 2.3, taken: false }));
     }
 
-    // --- 6. 업데이트 로직 ---
-    function update() {
-      // 키보드 이동
-      if (keys['ArrowUp'] || keys['KeyW']) player.y -= player.speed;
-      if (keys['ArrowDown'] || keys['KeyS']) player.y += player.speed;
-      if (keys['ArrowLeft'] || keys['KeyA']) player.x -= player.speed;
-      if (keys['ArrowRight'] || keys['KeyD']) player.x += player.speed;
+    function startGame(gender) {
+      playerGender = gender;
+      score = 0;
+      combo = 0;
+      currentQIdx = 0;
+      isRetry = false;
+      totalArtifacts = 0;
+      eraArtifacts = 0;
+      parts.length = 0;
+      floaters.length = 0;
+      player.trail.length = 0;
 
-      // 맵 경계 제한 (상단 HUD 영역 고려)
-      player.x = Math.max(20, Math.min(canvas.width - 50, player.x));
-      player.y = Math.max(70, Math.min(canvas.height - 50, player.y));
+      $('screen-select').classList.add('is-hidden');
+      $('screen-win').classList.add('is-hidden');
+      $('screen-quiz').classList.add('is-hidden');
+      $('hud').classList.remove('is-hidden');
+      $('touch-controls').classList.remove('is-hidden');
 
-      // 도깨비 이동 및 벽 반사
-      dokkaebis.forEach(dok => {
-        dok.y += dok.speedY;
-        if (dok.y <= 70 || dok.y >= canvas.height - 50) {
-          dok.speedY *= -1;
-        }
-
-        // 도깨비 충돌 검사
-        if (isColliding(player, dok)) {
-          // 출발점으로 되돌아가기
-          player.x = 80;
-          player.y = 230;
-        }
-      });
-
-      // 포탈 충돌 검사 (퀴즈 진입)
-      if (isColliding(player, portal)) {
-        openQuizModal();
-      }
-
-      // 포탈 박동 효과
-      portal.pulse += 0.05;
-    }
-
-    function isColliding(rect1, rect2) {
-      return (
-        rect1.x < rect2.x + rect2.width &&
-        rect1.x + rect1.width > rect2.x &&
-        rect1.y < rect2.y + rect2.height &&
-        rect1.y + rect1.height > rect2.y
-      );
-    }
-
-    // --- 7. 렌더링 로직 ---
-    function render() {
-      const currentData = QUESTION_DATABASE[currentQIdx];
-
-      // 배경 색상
-      ctx.fillStyle = currentData.bgColor;
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-      // 상단/하단 벽 그리기
-      ctx.fillStyle = currentData.wallColor;
-      ctx.fillRect(0, 0, canvas.width, 60);
-      ctx.fillRect(0, canvas.height - 20, canvas.width, 20);
-
-      // 격자 바닥 패턴
-      ctx.strokeStyle = "rgba(255,255,255,0.05)";
-      ctx.lineWidth = 2;
-      for (let x = 0; x < canvas.width; x += 40) {
-        ctx.beginPath();
-        ctx.moveTo(x, 60);
-        ctx.lineTo(x, canvas.height - 20);
-        ctx.stroke();
-      }
-
-      // 1. 포탈 그리기
-      const glow = Math.sin(portal.pulse) * 5;
-      ctx.fillStyle = "#f59e0b";
-      ctx.beginPath();
-      ctx.roundRect(portal.x - glow/2, portal.y - glow/2, portal.width + glow, portal.height + glow, 12);
-      ctx.fill();
-
-      ctx.fillStyle = "#fef3c7";
-      ctx.beginPath();
-      ctx.roundRect(portal.x + 5, portal.y + 5, portal.width - 10, portal.height - 10, 8);
-      ctx.fill();
-
-      ctx.font = "20px 'Jua', sans-serif";
-      ctx.fillStyle = "#78350f";
-      ctx.textAlign = "center";
-      ctx.fillText("시간의", portal.x + portal.width / 2, portal.y + 35);
-      ctx.fillText("문", portal.x + portal.width / 2, portal.y + 60);
-
-      // 2. 도깨비 장애물 그리기
-      dokkaebis.forEach(dok => {
-        // 도깨비 배경 상자
-        ctx.fillStyle = "#991b1b";
-        ctx.beginPath();
-        ctx.roundRect(dok.x, dok.y, dok.width, dok.height, 8);
-        ctx.fill();
-
-        // 도깨비 이모지
-        ctx.font = "24px sans-serif";
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
-        ctx.fillText("👹", dok.x + dok.width / 2, dok.y + dok.height / 2);
-      });
-
-      // 3. 플레이어 그리기
-      const isBoy = playerGender === "BOY";
-      ctx.fillStyle = isBoy ? "#3b82f6" : "#f43f5e";
-      ctx.beginPath();
-      ctx.roundRect(player.x, player.y, player.width, player.height, 8);
-      ctx.fill();
-
-      ctx.font = "24px sans-serif";
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      ctx.fillText(isBoy ? "👦" : "👧", player.x + player.width / 2, player.y + player.height / 2);
-    }
-
-    // --- 8. 퀴즈 모달 관리 ---
-    function openQuizModal() {
-      gameState = "QUIZ";
-      const quizScreen = document.getElementById('screen-quiz');
-      const qData = QUESTION_DATABASE[currentQIdx];
-      const qInfo = isRetry ? qData.retry : qData.primary;
-
-      document.getElementById('quiz-era-tag').innerText = qData.era;
-      document.getElementById('quiz-type-tag').innerText = isRetry ? "복습 재도전 문제" : "시대 도전 문제";
-      document.getElementById('quiz-question').innerText = qInfo.question;
-
-      // 오답 경고 표시 제어
-      const retryBadge = document.getElementById('quiz-retry-badge');
-      if (isRetry) {
-        retryBadge.classList.remove('hidden');
-      } else {
-        retryBadge.classList.add('hidden');
-      }
-
-      // 보기 생성
-      const optionsContainer = document.getElementById('quiz-options');
-      optionsContainer.innerHTML = '';
-
-      qInfo.options.forEach((opt, idx) => {
-        const btn = document.createElement('button');
-        btn.className = `btn-bounce w-full bg-slate-800 hover:bg-slate-700 border-2 border-slate-700 hover:border-amber-400/80 text-left px-5 py-3.5 rounded-xl font-bold text-slate-200 text-sm sm:text-base flex items-center justify-between shadow-md transition-colors`;
-        btn.innerHTML = `
-          <span><span class="text-amber-400 mr-2 font-title">${idx + 1}.</span> ${opt}</span>
-          <span class="text-xs bg-slate-900 px-2.5 py-1 rounded-md text-slate-400">선택</span>
-        `;
-        btn.onclick = () => checkAnswer(idx);
-        optionsContainer.appendChild(btn);
-      });
-
-      quizScreen.classList.remove('hidden');
-    }
-
-    function checkAnswer(selectedIdx) {
-      const qData = QUESTION_DATABASE[currentQIdx];
-      const qInfo = isRetry ? qData.retry : qData.primary;
-
-      const quizScreen = document.getElementById('screen-quiz');
-      quizScreen.classList.add('hidden');
-
-      if (selectedIdx === qInfo.answer) {
-        // 정답!
-        score += isRetry ? 15 : 25;
-        currentQIdx++;
-        isRetry = false;
-
-        if (currentQIdx >= QUESTION_DATABASE.length) {
-          // 게임 승리
-          showWinScreen();
-        } else {
-          resetLevel();
-          gameState = "PLAY";
-        }
-      } else {
-        // 오답 -> 변형 복습 문제 활성화 및 플레이 위치 리셋
-        isRetry = true;
-        resetLevel();
-        gameState = "PLAY";
-      }
-    }
-
-    // --- 9. 엔딩 및 리셋 ---
-    function showWinScreen() {
-      gameState = "WIN";
-      document.getElementById('final-score').innerText = `${score} 점`;
-      document.getElementById('screen-win').classList.remove('hidden');
-      document.getElementById('hud').classList.add('hidden');
-      document.getElementById('touch-controls').classList.add('hidden');
+      sfx('start');
+      beginEra(0);
     }
 
     function resetGame() {
+      state = 'SELECT';
       score = 0;
+      combo = 0;
       currentQIdx = 0;
       isRetry = false;
-      gameState = "SELECT";
+      totalArtifacts = 0;
+      eraArtifacts = 0;
+      doks = [];
+      arts = [];
+      parts.length = 0;
+      floaters.length = 0;
+      player.trail.length = 0;
+      maxHearts = DIFFICULTY[difficulty].hearts;
+      hearts = maxHearts;
 
-      document.getElementById('screen-win').classList.add('hidden');
-      document.getElementById('screen-character-select').classList.remove('hidden');
+      $('screen-win').classList.add('is-hidden');
+      $('screen-quiz').classList.add('is-hidden');
+      $('screen-select').classList.remove('is-hidden');
+      $('hud').classList.add('is-hidden');
+      $('touch-controls').classList.add('is-hidden');
+      $('best-score-select').textContent = best;
+      updateHUD();
     }
+
+    function showWin() {
+      state = 'WIN';
+      if (score > best) {
+        best = score;
+        try { localStorage.setItem('st_best', String(best)); } catch (e) { /* ignore */ }
+        $('new-record').classList.remove('is-hidden');
+      } else {
+        $('new-record').classList.add('is-hidden');
+      }
+      $('final-score').textContent = score + ' 점';
+      $('final-best').textContent = best + ' 점';
+      $('final-artifacts').textContent = totalArtifacts + ' / 12';
+      $('best-score-select').textContent = best;
+
+      $('screen-quiz').classList.add('is-hidden');
+      $('hud').classList.add('is-hidden');
+      $('touch-controls').classList.add('is-hidden');
+      $('screen-win').classList.remove('is-hidden');
+
+      sfx('win');
+      spawnConfetti(130);
+    }
+
+    /* =========================================================
+       9. HUD · 배너 · 토스트
+    ========================================================= */
+    function renderHearts() {
+      const box = $('hearts');
+      let html = '';
+      for (let i = 0; i < maxHearts; i++) {
+        html += `<span class="${i < hearts ? '' : 'opacity-20 grayscale'}">❤️</span>`;
+      }
+      box.innerHTML = html;
+    }
+
+    function updateHUD() {
+      $('score-display').textContent = score;
+      $('era-badge').textContent = QUESTION_DATABASE[currentQIdx].era.replace(/^\d+\.\s*/, '');
+      $('combo-badge').classList.toggle('is-hidden', combo < 2);
+      $('combo-display').textContent = combo;
+      $('art-count').textContent = eraArtifacts + ' / 3';
+      $('player-avatar-badge').textContent = playerGender === 'BOY' ? '👦' : '👧';
+      $('player-name-display').textContent = playerGender === 'BOY' ? '남학생 탐험가' : '여학생 탐험가';
+      renderHearts();
+    }
+
+    function showBanner(title, sub) {
+      const b = $('era-banner');
+      b.innerHTML = `<div class="rounded-2xl border border-amber-300/40 bg-slate-950/78 px-5 py-2 shadow-2xl backdrop-blur-sm">
+        <div class="font-title text-lg text-amber-200 sm:text-3xl">${title}</div>
+        <div class="text-[10px] text-slate-300 sm:text-xs">${sub}</div>
+      </div>`;
+      b.classList.remove('show');
+      void b.offsetWidth;
+      b.classList.add('show');
+    }
+
+    function showToast(title, text) {
+      const el = $('toast');
+      el.innerHTML = `<div class="font-title text-xs text-cyan-300 sm:text-sm">${title}</div>
+        <div class="text-[10px] leading-snug text-slate-200 sm:text-[11px]">${text}</div>`;
+      el.classList.remove('show');
+      void el.offsetWidth;
+      el.classList.add('show');
+    }
+
+    /* =========================================================
+       10. 퀴즈
+    ========================================================= */
+    function openQuizModal() {
+      state = 'QUIZ';
+      quizAnswered = false;
+      quizPending = null;
+
+      const q = QUESTION_DATABASE[currentQIdx];
+      const info = isRetry ? q.retry : q.primary;
+
+      $('quiz-era-tag').textContent = q.era;
+      $('quiz-type-tag').textContent = isRetry ? '복습 재도전 문제' : '시대 도전 문제';
+      $('quiz-question').textContent = info.question;
+      $('quiz-retry-badge').classList.toggle('is-hidden', !isRetry);
+      $('quiz-explain').classList.add('is-hidden');
+
+      const box = $('quiz-options');
+      box.innerHTML = '';
+      info.options.forEach((opt, i) => {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'opt-btn';
+        b.innerHTML = `<span class="flex items-start gap-2"><span class="opt-key mt-0.5">${i + 1}</span><span>${opt}</span></span><span class="text-[10px] font-normal text-slate-500">선택</span>`;
+        b.addEventListener('click', () => answerQuiz(i));
+        box.appendChild(b);
+      });
+
+      $('screen-quiz').classList.remove('is-hidden');
+      const card = $('quiz-card');
+      card.classList.remove('pop-in');
+      void card.offsetWidth;
+      card.classList.add('pop-in');
+      sfx('click');
+    }
+
+    function answerQuiz(i) {
+      if (state !== 'QUIZ' || quizAnswered) return;
+      const q = QUESTION_DATABASE[currentQIdx];
+      const info = isRetry ? q.retry : q.primary;
+      if (i < 0 || i >= info.options.length) return;
+      quizAnswered = true;
+
+      const buttons = Array.from($('quiz-options').children);
+      buttons.forEach((b, bi) => {
+        b.disabled = true;
+        if (bi === info.answer) b.classList.add('opt-correct');
+        if (bi === i && i !== info.answer) b.classList.add('opt-wrong');
+      });
+
+      const correct = i === info.answer;
+      let gain = 0;
+
+      if (correct) {
+        gain = (isRetry ? 15 : 25) + combo * 5;
+        score += gain;
+        combo = Math.min(5, combo + 1);
+        quizPending = currentQIdx + 1 >= QUESTION_DATABASE.length ? 'win' : 'next';
+        sfx('correct');
+        flash = 0.26;
+        burst(player.x, player.y - 18, '#fde68a', 26, { speed: 260, gravity: 320, life: 0.75, size: 3 });
+      } else {
+        isRetry = true;
+        combo = 0;
+        quizPending = 'retry';
+        sfx('wrong');
+        shake = 10;
+      }
+      updateHUD();
+
+      const title = $('quiz-result-title');
+      if (correct) {
+        title.className = 'font-title text-sm text-emerald-300';
+        title.innerHTML = `✅ 정답! <span class="text-amber-300">+${gain}점</span>`;
+      } else {
+        title.className = 'font-title text-sm text-rose-300';
+        title.textContent = '❌ 아쉬워요!';
+      }
+
+      $('quiz-explain-text').textContent = info.explain;
+      $('quiz-continue').textContent =
+        quizPending === 'retry' ? '📖 복습 문제 도전'
+          : quizPending === 'win' ? '🏆 결과 보기'
+            : '➡️ 다음 시대로';
+
+      const ex = $('quiz-explain');
+      ex.classList.remove('is-hidden', 'pop-in');
+      void ex.offsetWidth;
+      ex.classList.add('pop-in');
+    }
+
+    function continueQuiz() {
+      if (state !== 'QUIZ' || !quizAnswered) return;
+      $('screen-quiz').classList.add('is-hidden');
+
+      if (quizPending === 'retry') {
+        isRetry = true;
+        maxHearts = DIFFICULTY[difficulty].hearts;
+        hearts = maxHearts;
+        player.x = 140;
+        player.y = 318;
+        player.vx = player.vy = 0;
+        player.invuln = 1.2;
+        updateHUD();
+        openQuizModal();
+        return;
+      }
+
+      if (quizPending === 'win') { showWin(); return; }
+
+      const next = currentQIdx + 1;
+      if (next >= QUESTION_DATABASE.length) { showWin(); return; }
+      beginEra(next);
+    }
+    /* =========================================================
+       11. 업데이트
+    ========================================================= */
+    function update(dt) {
+      updateParticles(dt);
+      updateFloaters(dt);
+
+      for (let i = player.trail.length - 1; i >= 0; i--) {
+        player.trail[i].life -= dt;
+        if (player.trail[i].life <= 0) player.trail.splice(i, 1);
+      }
+
+      if (shake > 0) shake = Math.max(0, shake - dt * 46);
+      if (flash > 0) flash = Math.max(0, flash - dt * 2.2);
+
+      if (state === 'PLAY') updatePlay(dt);
+      if (state === 'WIN' && parts.length < 220 && Math.random() < 0.07) spawnConfetti(2);
+    }
+
+    function updatePlay(dt) {
+      const diff = DIFFICULTY[difficulty];
+      let ix = inputX();
+      let iy = inputY();
+      if (ix !== 0 || iy !== 0) {
+        const l = Math.hypot(ix, iy);
+        ix /= l;
+        iy /= l;
+      }
+      if (ix !== 0) player.facing = ix > 0 ? 1 : -1;
+
+      player.dashCd = Math.max(0, player.dashCd - dt);
+      player.invuln = Math.max(0, player.invuln - dt);
+
+      const SPEED = 300;
+
+      if (player.dashing > 0) {
+        player.dashing -= dt;
+        player.x += player.dashDir.x * DASH_SPEED * dt;
+        player.y += player.dashDir.y * DASH_SPEED * dt;
+        player.trail.push({ x: player.x, y: player.y, life: 0.3, facing: player.facing });
+        if (Math.random() < 0.7) {
+          burst(player.x - player.dashDir.x * 14, player.y - player.dashDir.y * 14 + 8,
+            currentTheme().accent2, 1, { speed: 40, gravity: 0, life: 0.35, size: 2.4 });
+        }
+        player.walk += dt * 22;
+      } else {
+        const k = Math.min(1, dt * 16);
+        player.vx += (ix * SPEED - player.vx) * k;
+        player.vy += (iy * SPEED - player.vy) * k;
+        player.x += player.vx * dt;
+        player.y += player.vy * dt;
+        const sp = Math.hypot(player.vx, player.vy);
+        player.walk += dt * (2.2 + sp * 0.016);
+      }
+
+      player.x = clamp(player.x, 40, W - 40);
+      player.y = clamp(player.y, 165, 458);
+
+      // 대시 쿨다운 UI
+      $('dash-fill').style.width = Math.round((1 - player.dashCd / DASH_CD) * 100) + '%';
+      $('dash-btn').classList.toggle('cooling', player.dashCd > 0);
+
+      // 도깨비 이동 · 충돌
+      doks.forEach(d => {
+        if (d.stun > 0) {
+          d.stun = Math.max(0, d.stun - dt);
+          return;
+        }
+        d.phase += dt * d.spd * 1.6;
+
+        if (d.type === 'v') {
+          d.x = d.baseX + Math.sin(d.phase * 0.55) * 12;
+          d.y = clamp(d.baseY + Math.sin(d.phase) * d.amp, 158, 462);
+        } else if (d.type === 'h') {
+          d.x = clamp(d.baseX + Math.sin(d.phase) * d.amp, 148, 800);
+          d.y = d.baseY + Math.cos(d.phase * 1.4) * 16;
+        } else {
+          const dx = player.x - d.x;
+          const dy = player.y - d.y;
+          const dist = Math.hypot(dx, dy) || 1;
+          const sp = 68 * diff.chase * (d.size / 46);
+          if (dist > 8) {
+            d.x += (dx / dist) * sp * dt;
+            d.y += (dy / dist) * sp * dt;
+          }
+          d.x = clamp(d.x, 148, 792);
+          d.y = clamp(d.y, 160, 458);
+          d.bob = Math.sin(t * 5 + d.seed) * 5;
+        }
+
+        const cy = d.y + (d.bob || 0);
+        if (Math.hypot(player.x - d.x, player.y - cy) < d.size * 0.5 + 16) {
+          if (player.dashing > 0) stunDok(d);
+          else if (player.invuln <= 0) hitPlayer(d);
+        }
+      });
+
+      // 유물 획득
+      arts.forEach(a => {
+        if (!a.taken && Math.hypot(player.x - a.x, player.y - a.y) < 32) takeArtifact(a);
+      });
+
+      // 시간의 문 도착 → 퀴즈
+      if (Math.hypot(player.x - PORTAL.x, player.y - PORTAL.y) < PORTAL.r) {
+        burst(PORTAL.x, PORTAL.y, currentTheme().accent2, 24, { speed: 260, gravity: 0, life: 0.6, size: 2.6 });
+        sfx('era');
+        openQuizModal();
+      }
+    }
+
+    function hitPlayer(d) {
+      if (player.invuln > 0) return;
+      hearts--;
+      combo = 0;
+      player.invuln = 1.7;
+
+      const dx = player.x - d.x;
+      const dy = player.y - (d.y + (d.bob || 0));
+      const len = Math.hypot(dx, dy) || 1;
+      player.vx = (dx / len) * 430;
+      player.vy = (dy / len) * 430;
+      player.dashing = 0;
+
+      shake = 16;
+      flash = 0.5;
+      sfx('hit');
+      burst(player.x, player.y, '#f87171', 20, { speed: 280, gravity: 260, life: 0.6, size: 3 });
+      addFloater(player.x, player.y - 34, '-1 ❤️', '#fca5a5');
+
+      if (hearts <= 0) {
+        hearts = maxHearts;
+        player.x = 140;
+        player.y = 318;
+        player.vx = player.vy = 0;
+        player.invuln = 2.4;
+        showToast('기운을 차렸어요!', '쓰러져도 다시 일어나요. 대시(⚡)로 도깨비를 물리치며 포탈로 가 보세요!');
+      }
+      updateHUD();
+    }
+
+    function stunDok(d) {
+      d.stun = 3.2;
+      d.bob = 0;
+      score += 5;
+      combo = Math.min(5, combo + 1);
+      shake = 7;
+      sfx('stun');
+      burst(d.x, d.y, currentTheme().accent2, 22, { speed: 300, gravity: 180, life: 0.7, size: 3 });
+      addFloater(d.x, d.y - 40, '+5 ⭐', '#fde68a');
+      updateHUD();
+    }
+
+    function takeArtifact(a) {
+      a.taken = true;
+      eraArtifacts++;
+      totalArtifacts++;
+      score += 10;
+      combo = Math.min(5, combo + 1);
+      sfx('pickup');
+      burst(a.x, a.y, '#fde68a', 22, { speed: 240, gravity: 200, life: 0.7, size: 3 });
+      burst(a.x, a.y, currentTheme().accent, 14, { speed: 150, gravity: 0, life: 0.9, size: 2.4 });
+      addFloater(a.x, a.y - 26, '+10', '#a7f3d0');
+      showToast(a.label + ' 획득!', a.fact);
+      updateHUD();
+    }
+
+    /* =========================================================
+       12. 파티클 · 떠오르는 글자
+    ========================================================= */
+    function burst(x, y, color, count, opt = {}) {
+      const speed = opt.speed == null ? 180 : opt.speed;
+      for (let i = 0; i < count; i++) {
+        if (parts.length > 420) break;
+        const a = Math.random() * TAU;
+        const s = speed * (0.3 + Math.random() * 0.95);
+        const life = opt.life == null ? 0.35 + Math.random() * 0.5 : opt.life * (0.7 + Math.random() * 0.6);
+        parts.push({
+          x, y,
+          vx: Math.cos(a) * s,
+          vy: Math.sin(a) * s - (opt.up || 0),
+          g: opt.gravity == null ? 520 : opt.gravity,
+          life, max: life,
+          size: opt.size == null ? 2 + Math.random() * 3 : opt.size * (0.7 + Math.random() * 0.6),
+          color,
+          drag: opt.drag == null ? 1.4 : opt.drag,
+          rot: Math.random() * TAU,
+          vr: rnd(-6, 6),
+          shape: opt.shape || 'circle'
+        });
+      }
+    }
+
+    function spawnConfetti(n) {
+      const colors = ['#fde68a', '#fca5a5', '#93c5fd', '#86efac', '#f9a8d4', '#fcd34d'];
+      for (let i = 0; i < n; i++) {
+        if (parts.length > 420) break;
+        parts.push({
+          x: rnd(0, W), y: rnd(-150, -10),
+          vx: rnd(-50, 50), vy: rnd(60, 190),
+          g: 130, life: rnd(2.2, 4.2), max: 4.2,
+          size: rnd(3, 6.5), color: pick(colors),
+          drag: 0.2, rot: rnd(0, TAU), vr: rnd(-7, 7), shape: 'rect'
+        });
+      }
+    }
+
+    function updateParticles(dt) {
+      for (let i = parts.length - 1; i >= 0; i--) {
+        const p = parts[i];
+        p.life -= dt;
+        if (p.life <= 0) { parts.splice(i, 1); continue; }
+        p.vy += p.g * dt;
+        p.vx *= Math.max(0, 1 - p.drag * dt);
+        p.vy *= Math.max(0, 1 - p.drag * 0.35 * dt);
+        p.x += p.vx * dt;
+        p.y += p.vy * dt;
+        p.rot += p.vr * dt;
+      }
+    }
+
+    function addFloater(x, y, text, color) {
+      floaters.push({ x, y, text, color, life: 1.1, max: 1.1 });
+    }
+
+    function updateFloaters(dt) {
+      for (let i = floaters.length - 1; i >= 0; i--) {
+        const f = floaters[i];
+        f.life -= dt;
+        f.y -= 46 * dt;
+        if (f.life <= 0) floaters.splice(i, 1);
+      }
+    }
+    /* =========================================================
+       13. 렌더링 (배경 · 장식)
+    ========================================================= */
+    function render() {
+      const th = currentTheme();
+      ctx.save();
+      if (shake > 0) {
+        ctx.translate(rnd(-shake, shake) * 0.6, rnd(-shake, shake) * 0.6);
+      }
+
+      drawBackground(th, t);
+      drawPortal(th, t);
+
+      if (state !== 'SELECT') {
+        arts.forEach(a => drawArtifact(a, th, t));
+        doks.forEach(d => drawDokkaebi(d, th, t));
+        drawTrails(th);
+        drawPlayer(th, t);
+      }
+
+      drawParticles();
+      drawFloaters();
+      ctx.restore();
+
+      drawVignette();
+
+      if (flash > 0) {
+        ctx.fillStyle = `rgba(255, 96, 96, ${Math.min(0.4, flash * 0.42)})`;
+        ctx.fillRect(0, 0, W, H);
+      }
+    }
+
+    function drawBackground(th, time) {
+      // 하늘 그라데이션
+      const sky = ctx.createLinearGradient(0, 0, 0, H);
+      sky.addColorStop(0, th.sky[0]);
+      sky.addColorStop(0.55, th.sky[1]);
+      sky.addColorStop(1, th.sky[2]);
+      ctx.fillStyle = sky;
+      ctx.fillRect(0, 0, W, H);
+
+      // 빛무리
+      const gx = W * 0.74;
+      const gy = H * 0.34;
+      const glow = ctx.createRadialGradient(gx, gy, 10, gx, gy, 400);
+      glow.addColorStop(0, th.glow);
+      glow.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = glow;
+      ctx.fillRect(0, 0, W, H);
+
+      // 별
+      ctx.save();
+      th.stars.forEach(s => {
+        const a = 0.12 + 0.55 * (0.5 + 0.5 * Math.sin(time * 1.7 + s.tw));
+        ctx.globalAlpha = a;
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(s.x + Math.sin(time * 0.4 + s.tw) * 4, s.y, s.r, 0, TAU);
+        ctx.fill();
+      });
+      ctx.restore();
+
+      // 구름
+      th.clouds.forEach(c => {
+        const x = ((c.x + time * c.sp) % (W + 340)) - 170;
+        ctx.save();
+        ctx.globalAlpha = 0.09;
+        ctx.fillStyle = th.accent2;
+        ctx.beginPath();
+        ctx.ellipse(x, c.y, c.r * 1.7, c.r * 0.6, 0, 0, TAU);
+        ctx.ellipse(x + c.r * 1.15, c.y - c.r * 0.26, c.r * 1.1, c.r * 0.55, 0, 0, TAU);
+        ctx.ellipse(x - c.r * 1.2, c.y - c.r * 0.1, c.r * 0.9, c.r * 0.45, 0, 0, TAU);
+        ctx.fill();
+        ctx.restore();
+      });
+
+      // 먼 산 실루엣
+      drawHill(424, 40, 0.0075, time * 7, th.far, 0.95);
+      drawHill(472, 26, 0.011, -time * 13, th.mid, 1);
+
+      // 시대 장식
+      drawThemeDecor(th, time);
+
+      // 바닥
+      drawGround(th, time);
+
+      // 떠다니는 먼지
+      ctx.save();
+      th.motes.forEach(m => {
+        const y = (((m.y - time * m.sp) % (H + 30)) + H + 30) % (H + 30) - 15;
+        ctx.globalAlpha = 0.12 + 0.34 * (0.5 + 0.5 * Math.sin(time * 2 + m.ph));
+        ctx.fillStyle = th.dust;
+        ctx.beginPath();
+        ctx.arc(m.x + Math.sin(time * 0.8 + m.ph) * 14, y, m.r, 0, TAU);
+        ctx.fill();
+      });
+      ctx.restore();
+    }
+
+    function drawHill(base, amp, freq, phase, color, alpha) {
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.moveTo(0, H);
+      for (let x = 0; x <= W; x += 10) {
+        const y = base + Math.sin(x * freq + phase) * amp + Math.sin(x * freq * 2.3 + phase * 1.7) * amp * 0.35;
+        ctx.lineTo(x, y);
+      }
+      ctx.lineTo(W, H);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+    }
+
+    function drawGround(th, time) {
+      const g = ctx.createLinearGradient(0, GY, 0, H);
+      g.addColorStop(0, th.groundTop);
+      g.addColorStop(1, th.ground);
+      ctx.fillStyle = g;
+      ctx.fillRect(0, GY, W, H - GY);
+
+      // 빛나는 경계선
+      ctx.save();
+      ctx.globalAlpha = 0.5 + 0.22 * Math.sin(time * 2);
+      ctx.fillStyle = th.accent;
+      ctx.fillRect(0, GY - 2, W, 3);
+      ctx.restore();
+
+      // 원근 격자
+      ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+      ctx.lineWidth = 1;
+      for (let i = 1; i <= 6; i++) {
+        const y = GY + i * i * 1.5;
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(W, y);
+        ctx.stroke();
+      }
+      for (let x = 0; x <= W; x += 64) {
+        ctx.beginPath();
+        ctx.moveTo(x, GY);
+        ctx.lineTo(W / 2 + (x - W / 2) * 1.18, H);
+        ctx.stroke();
+      }
+
+      // 바닥 반사광
+      const rg = ctx.createLinearGradient(0, GY, 0, H);
+      rg.addColorStop(0, 'rgba(255,255,255,0.10)');
+      rg.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.fillStyle = rg;
+      ctx.fillRect(0, GY, W, H - GY);
+    }
+
+    function drawThemeDecor(th, time) {
+      if (th.deco === 'cave') {
+        // 종유석
+        for (let i = 0; i < 10; i++) {
+          const x = 20 + i * 103;
+          const h = 34 + ((i * 47) % 56);
+          const grad = ctx.createLinearGradient(0, 0, 0, h);
+          grad.addColorStop(0, 'rgba(0,0,0,0.55)');
+          grad.addColorStop(1, 'rgba(0,0,0,0.04)');
+          ctx.fillStyle = grad;
+          ctx.beginPath();
+          ctx.moveTo(x - 25, 0);
+          ctx.lineTo(x + 25, 0);
+          ctx.lineTo(x + (i % 2 ? 7 : -7), h);
+          ctx.closePath();
+          ctx.fill();
+        }
+        drawTorch(64, 300, time, th);
+        drawTorch(932, 340, time, th);
+
+        // 벽화 느낌 장식
+        ctx.save();
+        ctx.globalAlpha = 0.16;
+        ctx.strokeStyle = '#fdba74';
+        ctx.lineWidth = 3;
+        for (let k = 0; k < 7; k++) {
+          ctx.beginPath();
+          ctx.arc(206 + k * 10, 160 + Math.sin(k * 1.4) * 9, 3.4, 0, TAU);
+          ctx.stroke();
+        }
+        ctx.restore();
+      } else if (th.deco === 'temple') {
+        drawPagoda(206, 452, 1.1, th.far);
+        for (let i = 0; i < 4; i++) {
+          const x = 118 + i * 232 + Math.sin(time * 0.6 + i) * 18;
+          const y = 118 + i * 30 + Math.sin(time * 0.9 + i * 2) * 10;
+          drawLantern(x, y, time, th);
+        }
+      } else if (th.deco === 'palace') {
+        drawPalace(646, 462, th.far);
+        th.petals.forEach((p, i) => {
+          const y = ((p.y + time * p.sp) % (H + 60)) - 30;
+          const x = p.x + Math.sin(time * 0.7 + i) * 22 + time * 4;
+          ctx.save();
+          ctx.translate(x % W, y);
+          ctx.rotate(time * p.rot + i);
+          ctx.globalAlpha = 0.5;
+          ctx.fillStyle = th.accent2;
+          ctx.beginPath();
+          ctx.ellipse(0, 0, p.r, p.r * 0.6, 0, 0, TAU);
+          ctx.fill();
+          ctx.restore();
+        });
+      } else {
+        drawCity(th, time);
+      }
+    }
+
+    function drawTorch(x, y, time, th) {
+      ctx.save();
+      ctx.strokeStyle = 'rgba(0,0,0,0.5)';
+      ctx.lineWidth = 5;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.lineTo(x, y + 60);
+      ctx.stroke();
+
+      const f = 1 + Math.sin(time * 9 + x) * 0.15;
+      ctx.globalCompositeOperation = 'lighter';
+      const g = ctx.createRadialGradient(x, y - 10, 2, x, y - 10, 44 * f);
+      g.addColorStop(0, 'rgba(255, 243, 196, 0.95)');
+      g.addColorStop(0.35, 'rgba(251, 146, 60, 0.6)');
+      g.addColorStop(1, 'rgba(251, 146, 60, 0)');
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(x, y - 10, 44 * f, 0, TAU);
+      ctx.fill();
+
+      ctx.fillStyle = 'rgba(255, 236, 170, 0.95)';
+      ctx.beginPath();
+      ctx.ellipse(x, y - 14, 6, 12 * f, Math.sin(time * 3 + x) * 0.2, 0, TAU);
+      ctx.fill();
+      ctx.restore();
+    }
+
+    function drawPagoda(x, baseY, s, color) {
+      ctx.save();
+      ctx.translate(x, baseY);
+      ctx.scale(s, s);
+      ctx.fillStyle = color;
+      ctx.fillRect(-26, -156, 52, 156);
+      for (let i = 0; i < 3; i++) {
+        const y = -156 + i * 48;
+        const w = 104 - i * 16;
+        ctx.beginPath();
+        ctx.moveTo(-w / 2, y);
+        ctx.quadraticCurveTo(0, y - 30, w / 2, y);
+        ctx.quadraticCurveTo(0, y - 6, -w / 2, y);
+        ctx.fill();
+      }
+      ctx.fillStyle = 'rgba(253, 224, 71, 0.45)';
+      for (let i = 0; i < 3; i++) ctx.fillRect(-8, -126 + i * 42, 16, 12);
+      ctx.restore();
+    }
+
+    function drawLantern(x, y, time, th) {
+      const g = ctx.createRadialGradient(x, y, 2, x, y, 30);
+      g.addColorStop(0, 'rgba(253, 224, 71, 0.5)');
+      g.addColorStop(1, 'rgba(253, 224, 71, 0)');
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(x, y, 30, 0, TAU);
+      ctx.fill();
+
+      ctx.fillStyle = '#fbbf24';
+      ctx.beginPath();
+      ctx.roundRect(x - 7, y - 9, 14, 18, 5);
+      ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,0.75)';
+      ctx.fillRect(x - 2, y - 5, 4, 10);
+
+      // 매다는 줄
+      ctx.strokeStyle = 'rgba(255,255,255,0.18)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, y - 10);
+      ctx.stroke();
+    }
+
+    function drawPalace(x, baseY, color) {
+      ctx.save();
+      ctx.translate(x, baseY);
+      ctx.fillStyle = color;
+      ctx.fillRect(-142, -74, 284, 74);
+      ctx.beginPath();
+      ctx.moveTo(-178, -74);
+      ctx.quadraticCurveTo(0, -158, 178, -74);
+      ctx.quadraticCurveTo(0, -96, -178, -74);
+      ctx.fill();
+      ctx.fillStyle = 'rgba(0,0,0,0.28)';
+      for (let i = -3; i <= 3; i++) ctx.fillRect(i * 40 - 4, -68, 8, 68);
+      ctx.restore();
+    }
+
+    function drawCity(th, time) {
+      const blocks = [
+        [-10, 150, 88], [84, 208, 72], [166, 124, 92], [268, 250, 108],
+        [388, 168, 82], [478, 300, 128], [618, 190, 92], [716, 240, 102],
+        [832, 148, 74], [912, 210, 60]
+      ];
+      blocks.forEach(([bx, h, bw], i) => {
+        const top = (H - 96) - h;
+        ctx.fillStyle = th.far;
+        ctx.fillRect(bx, top, bw, h + 96);
+
+        ctx.fillStyle = 'rgba(253, 224, 71, 0.5)';
+        const rows = Math.floor(h / 26);
+        const cols = Math.floor(bw / 20);
+        for (let row = 0; row < rows; row++) {
+          for (let col = 0; col < cols; col++) {
+            if (((row * 7 + col * 3 + i) % 5) < 2) {
+              ctx.fillRect(bx + 8 + col * 20, top + 12 + row * 26, 8, 10);
+            }
+          }
+        }
+      });
+
+      // 탐조등
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      for (let i = 0; i < 2; i++) {
+        const bx = i ? 862 : 118;
+        const ang = -Math.PI / 2 + Math.sin(time * 0.5 + i * 2.2) * 0.75;
+        const g = ctx.createLinearGradient(bx, GY, bx + Math.cos(ang) * 420, GY + Math.sin(ang) * 420);
+        g.addColorStop(0, 'rgba(167, 243, 208, 0.4)');
+        g.addColorStop(1, 'rgba(167, 243, 208, 0)');
+        ctx.fillStyle = g;
+        ctx.beginPath();
+        ctx.moveTo(bx - 8, GY);
+        ctx.lineTo(bx + Math.cos(ang - 0.12) * 480, GY + Math.sin(ang - 0.12) * 480);
+        ctx.lineTo(bx + Math.cos(ang + 0.12) * 480, GY + Math.sin(ang + 0.12) * 480);
+        ctx.lineTo(bx + 8, GY);
+        ctx.closePath();
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+
+    function drawVignette() {
+      const v = ctx.createRadialGradient(W / 2, H / 2, H * 0.36, W / 2, H / 2, H * 0.95);
+      v.addColorStop(0, 'rgba(0,0,0,0)');
+      v.addColorStop(1, 'rgba(0,0,0,0.55)');
+      ctx.fillStyle = v;
+      ctx.fillRect(0, 0, W, H);
+    }
+    /* =========================================================
+       14. 렌더링 (포탈 · 유물 · 도깨비 · 플레이어)
+    ========================================================= */
+    function drawPortal(th, time) {
+      const x = PORTAL.x, y = PORTAL.y, r = PORTAL.r;
+      const pulse = 1 + Math.sin(time * 3) * 0.05;
+
+      const g = ctx.createRadialGradient(x, y, 8, x, y, r * 2.7);
+      g.addColorStop(0, 'rgba(255,251,235,0.35)');
+      g.addColorStop(0.35, th.glow);
+      g.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(x, y, r * 2.7, 0, TAU);
+      ctx.fill();
+
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(time * 0.55);
+      for (let i = 0; i < 3; i++) {
+        ctx.beginPath();
+        ctx.arc(0, 0, r * (0.72 + i * 0.15) * pulse, i * 1.3, i * 1.3 + 2.2);
+        ctx.strokeStyle = i % 2 ? th.accent2 : th.accent;
+        ctx.lineWidth = 6 - i * 1.6;
+        ctx.globalAlpha = 0.85 - i * 0.18;
+        ctx.stroke();
+      }
+      ctx.restore();
+
+      const ig = ctx.createRadialGradient(x, y, 2, x, y, r * 0.96);
+      ig.addColorStop(0, 'rgba(255,255,255,0.95)');
+      ig.addColorStop(0.35, th.accent2);
+      ig.addColorStop(0.75, th.accent);
+      ig.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = ig;
+      ctx.beginPath();
+      ctx.arc(x, y, r * 0.9, 0, TAU);
+      ctx.fill();
+
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(-time * 1.5);
+      ctx.strokeStyle = 'rgba(255,255,255,0.75)';
+      ctx.lineWidth = 3;
+      ctx.globalAlpha = 0.7;
+      for (let i = 0; i < 2; i++) {
+        ctx.beginPath();
+        ctx.arc(0, 0, r * (0.45 + i * 0.22), i * 2.6, i * 2.6 + 1.9);
+        ctx.stroke();
+      }
+      ctx.restore();
+
+      for (let i = 0; i < 4; i++) {
+        const a = time * 1.4 + i * (TAU / 4);
+        ctx.globalAlpha = 0.7 + 0.3 * Math.sin(time * 4 + i);
+        ctx.fillStyle = '#fffbeb';
+        ctx.beginPath();
+        ctx.arc(x + Math.cos(a) * r * 1.16, y + Math.sin(a) * r * 1.04, 2.6, 0, TAU);
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+
+      ctx.font = "15px 'Jua', sans-serif";
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = '#fffbeb';
+      ctx.shadowColor = th.accent;
+      ctx.shadowBlur = 14;
+      ctx.fillText('시간의 문', x, y + r + 22);
+      ctx.shadowBlur = 0;
+      ctx.textBaseline = 'alphabetic';
+    }
+
+    function drawArtifact(a, th, time) {
+      if (a.taken) return;
+      const bob = Math.sin(time * 2 + a.seed) * 6;
+      const x = a.x;
+      const y = a.y + bob;
+
+      const g = ctx.createRadialGradient(x, y, 2, x, y, 44);
+      g.addColorStop(0, 'rgba(253,224,71,0.45)');
+      g.addColorStop(1, 'rgba(253,224,71,0)');
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(x, y, 44, 0, TAU);
+      ctx.fill();
+
+      for (let i = 0; i < 3; i++) {
+        const ang = time * 1.6 + i * (TAU / 3) + a.seed;
+        ctx.globalAlpha = 0.45 + 0.4 * Math.sin(time * 3 + i + a.seed);
+        ctx.fillStyle = '#fffbeb';
+        ctx.beginPath();
+        ctx.arc(x + Math.cos(ang) * 24, y + Math.sin(ang) * 12, 1.6, 0, TAU);
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(Math.sin(time * 1.4 + a.seed) * 0.08);
+      drawArtifactShape(a, time);
+      ctx.restore();
+
+      if (state === 'PLAY' && Math.hypot(player.x - x, player.y - y) < 150) {
+        ctx.font = "13px 'Jua', sans-serif";
+        ctx.textAlign = 'center';
+        ctx.fillStyle = 'rgba(0,0,0,0.55)';
+        ctx.fillText(a.label, x + 1, y + 39);
+        ctx.fillStyle = '#fef3c7';
+        ctx.fillText(a.label, x, y + 38);
+      }
+    }
+
+    function drawArtifactShape(a, time) {
+      const c = a.color || '#fbbf24';
+      ctx.lineWidth = 2;
+      switch (a.shape) {
+        case 'pot': {
+          ctx.fillStyle = c;
+          ctx.beginPath();
+          ctx.moveTo(-11, -14);
+          ctx.lineTo(11, -14);
+          ctx.bezierCurveTo(16, 0, 10, 15, 0, 17);
+          ctx.bezierCurveTo(-10, 15, -16, 0, -11, -14);
+          ctx.closePath();
+          ctx.fill();
+          ctx.strokeStyle = 'rgba(0,0,0,0.22)';
+          for (let i = -6; i <= 6; i += 6) {
+            ctx.beginPath();
+            ctx.moveTo(-11, i);
+            ctx.quadraticCurveTo(0, i + 3, 11, i);
+            ctx.stroke();
+          }
+          ctx.fillStyle = 'rgba(0,0,0,0.35)';
+          ctx.beginPath();
+          ctx.ellipse(0, -14, 11, 3.4, 0, 0, TAU);
+          ctx.fill();
+          break;
+        }
+        case 'stone': {
+          ctx.fillStyle = c;
+          ctx.beginPath();
+          ctx.moveTo(-13, 2); ctx.lineTo(-6, -12); ctx.lineTo(8, -10);
+          ctx.lineTo(14, 3); ctx.lineTo(6, 13); ctx.lineTo(-8, 12);
+          ctx.closePath();
+          ctx.fill();
+          ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+          ctx.beginPath();
+          ctx.moveTo(-6, -12); ctx.lineTo(-2, 2); ctx.lineTo(8, -10);
+          ctx.stroke();
+          ctx.strokeStyle = '#7c2d12';
+          ctx.lineWidth = 5;
+          ctx.lineCap = 'round';
+          ctx.beginPath();
+          ctx.moveTo(2, 10); ctx.lineTo(13, 20);
+          ctx.stroke();
+          break;
+        }
+        case 'crown': {
+          ctx.fillStyle = c;
+          ctx.beginPath();
+          ctx.moveTo(-16, 10); ctx.lineTo(-16, -6); ctx.lineTo(-8, 2);
+          ctx.lineTo(0, -12); ctx.lineTo(8, 2); ctx.lineTo(16, -6);
+          ctx.lineTo(16, 10); ctx.closePath();
+          ctx.fill();
+          ctx.fillStyle = 'rgba(255,255,255,0.6)';
+          ctx.beginPath(); ctx.arc(0, 4, 2.6, 0, TAU); ctx.fill();
+          break;
+        }
+        case 'book': {
+          ctx.fillStyle = c;
+          ctx.beginPath(); ctx.roundRect(-13, -15, 26, 30, 3); ctx.fill();
+          ctx.fillStyle = '#e2e8f0';
+          ctx.beginPath(); ctx.roundRect(-10, -12, 9, 24, 2); ctx.fill();
+          ctx.fillStyle = 'rgba(15,23,42,0.55)';
+          ctx.fillRect(1, -12, 9, 24);
+          ctx.strokeStyle = 'rgba(255,255,255,0.6)';
+          ctx.lineWidth = 2;
+          ctx.beginPath(); ctx.moveTo(6, -8); ctx.lineTo(6, 8); ctx.stroke();
+          break;
+        }
+        case 'flag': {
+          ctx.strokeStyle = '#cbd5e1';
+          ctx.lineWidth = 3;
+          ctx.lineCap = 'round';
+          ctx.beginPath(); ctx.moveTo(-13, -16); ctx.lineTo(-13, 16); ctx.stroke();
+          const wv = Math.sin(time * 4) * 2;
+          ctx.fillStyle = '#f8fafc';
+          ctx.beginPath();
+          ctx.moveTo(-13, -16);
+          ctx.quadraticCurveTo(2, -21, 15, -12 + wv);
+          ctx.lineTo(15, 4 + wv);
+          ctx.quadraticCurveTo(2, 10, -13, 2);
+          ctx.closePath();
+          ctx.fill();
+          ctx.fillStyle = '#ef4444';
+          ctx.beginPath(); ctx.arc(1, -7, 3.6, 0, TAU); ctx.fill();
+          ctx.fillStyle = '#3b82f6';
+          ctx.beginPath(); ctx.arc(1, -7, 1.8, Math.PI, TAU); ctx.fill();
+          break;
+        }
+        case 'jewel': {
+          ctx.fillStyle = c;
+          ctx.beginPath();
+          ctx.moveTo(0, -14); ctx.lineTo(12, -2); ctx.lineTo(6, 13);
+          ctx.lineTo(-6, 13); ctx.lineTo(-12, -2); ctx.closePath();
+          ctx.fill();
+          ctx.fillStyle = 'rgba(255,255,255,0.55)';
+          ctx.beginPath();
+          ctx.moveTo(0, -14); ctx.lineTo(6, -2); ctx.lineTo(0, 4); ctx.lineTo(-6, -2);
+          ctx.closePath();
+          ctx.fill();
+          break;
+        }
+        case 'ship': {
+          ctx.fillStyle = '#78350f';
+          ctx.beginPath();
+          ctx.moveTo(-16, 4);
+          ctx.quadraticCurveTo(0, 16, 16, 4);
+          ctx.quadraticCurveTo(0, 10, -16, 4);
+          ctx.fill();
+          ctx.fillStyle = c;
+          ctx.beginPath(); ctx.roundRect(-8, -9, 16, 13, 2); ctx.fill();
+          ctx.strokeStyle = '#fbbf24';
+          ctx.lineWidth = 2;
+          ctx.beginPath(); ctx.moveTo(-8, -9); ctx.lineTo(8, -9); ctx.stroke();
+          ctx.strokeStyle = '#cbd5e1';
+          ctx.beginPath(); ctx.moveTo(0, -9); ctx.lineTo(0, -18); ctx.stroke();
+          break;
+        }
+        case 'medal': {
+          ctx.fillStyle = '#ef4444';
+          ctx.beginPath();
+          ctx.moveTo(-8, -16); ctx.lineTo(0, -3); ctx.lineTo(8, -16);
+          ctx.lineTo(3, -16); ctx.lineTo(0, -9); ctx.lineTo(-3, -16);
+          ctx.closePath();
+          ctx.fill();
+          ctx.fillStyle = c;
+          ctx.beginPath(); ctx.arc(0, 4, 10, 0, TAU); ctx.fill();
+          ctx.fillStyle = 'rgba(255,255,255,0.6)';
+          ctx.beginPath(); ctx.arc(0, 4, 4, 0, TAU); ctx.fill();
+          break;
+        }
+      }
+    }
+
+    function drawDokkaebi(d, th, time) {
+      if (d.stun > 0) {
+        ctx.save();
+        ctx.globalAlpha = 0.22 + 0.16 * Math.sin(time * 10);
+        ctx.fillStyle = th.accent2;
+        ctx.beginPath();
+        ctx.arc(d.x, d.y, d.size * 0.55, 0, TAU);
+        ctx.fill();
+        ctx.globalAlpha = 0.85;
+        ctx.font = '26px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('💫', d.x + Math.sin(time * 6) * 5, d.y + Math.cos(time * 5) * 4);
+        ctx.restore();
+        return;
+      }
+
+      const bob = (d.bob || 0) + Math.sin(time * 3 + d.seed) * 4;
+      const x = d.x;
+      const y = d.y + bob;
+      const s = d.size / 46;
+
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.scale(s, s);
+      ctx.rotate(Math.sin(time * 2 + d.seed) * 0.06);
+
+      const g = ctx.createRadialGradient(0, -4, 4, 0, -4, 44);
+      g.addColorStop(0, 'rgba(248,113,113,0.42)');
+      g.addColorStop(1, 'rgba(248,113,113,0)');
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(0, 0, 44, 0, TAU); ctx.fill();
+
+      for (let i = 0; i < 3; i++) {
+        ctx.globalAlpha = 0.45 - i * 0.12;
+        ctx.fillStyle = '#7f1d1d';
+        ctx.beginPath();
+        ctx.arc(Math.sin(time * 4 + i) * 5, 18 + i * 7, 9 - i * 2.2, 0, TAU);
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+
+      const body = ctx.createLinearGradient(0, -26, 0, 24);
+      body.addColorStop(0, '#ef4444');
+      body.addColorStop(1, '#7f1d1d');
+      ctx.fillStyle = body;
+      ctx.beginPath();
+      ctx.moveTo(0, -26);
+      ctx.bezierCurveTo(24, -26, 28, 0, 22, 14);
+      ctx.bezierCurveTo(14, 26, -14, 26, -22, 14);
+      ctx.bezierCurveTo(-28, 0, -24, -26, 0, -26);
+      ctx.fill();
+
+      ctx.fillStyle = '#fbbf24';
+      [-1, 1].forEach(sg => {
+        ctx.beginPath();
+        ctx.moveTo(sg * 10, -22);
+        ctx.quadraticCurveTo(sg * 23, -40, sg * 5, -30);
+        ctx.closePath();
+        ctx.fill();
+      });
+
+      const dx = clamp((player.x - x) / 240, -1, 1) * 3;
+      const dy = clamp((player.y - y) / 240, -1, 1) * 2;
+      [-9, 9].forEach(ox => {
+        ctx.fillStyle = '#fff';
+        ctx.beginPath(); ctx.ellipse(ox, -4, 7, 8, 0, 0, TAU); ctx.fill();
+        ctx.fillStyle = '#111827';
+        ctx.beginPath(); ctx.arc(ox + dx, -3 + dy, 3.2, 0, TAU); ctx.fill();
+        ctx.fillStyle = '#fff';
+        ctx.beginPath(); ctx.arc(ox + dx - 1, -5 + dy, 1.1, 0, TAU); ctx.fill();
+      });
+
+      ctx.strokeStyle = '#450a0a';
+      ctx.lineWidth = 2.5;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(-7, 10);
+      ctx.quadraticCurveTo(0, 16, 7, 10);
+      ctx.stroke();
+
+      ctx.fillStyle = '#fff7ed';
+      ctx.beginPath(); ctx.moveTo(-5, 11); ctx.lineTo(-2, 16); ctx.lineTo(0, 11); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(5, 11); ctx.lineTo(2, 16); ctx.lineTo(0, 11); ctx.fill();
+
+      ctx.restore();
+    }
+
+    function drawTrails() {
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      player.trail.forEach(tr => {
+        ctx.globalAlpha = clamp(tr.life / 0.3, 0, 1) * 0.4;
+        ctx.fillStyle = playerGender === 'BOY' ? '#60a5fa' : '#fb7185';
+        ctx.beginPath();
+        ctx.ellipse(tr.x, tr.y, 11, 17, 0, 0, TAU);
+        ctx.fill();
+      });
+      ctx.restore();
+    }
+
+    function drawPlayer(th, time) {
+      const isBoy = playerGender === 'BOY';
+      const px = player.x;
+      const py = player.y;
+      const speed = Math.hypot(player.vx, player.vy);
+      const moving = speed > 25 || player.dashing > 0;
+      const bob = Math.sin(player.walk * 2) * (moving ? 2.2 : 0.8);
+      const swing = Math.sin(player.walk * 2) * (moving ? 5 : 1.6);
+
+      ctx.save();
+      ctx.globalAlpha = 0.32;
+      ctx.fillStyle = '#000';
+      ctx.beginPath();
+      ctx.ellipse(px, py + 30, 20, 6.5, 0, 0, TAU);
+      ctx.fill();
+      ctx.restore();
+
+      ctx.save();
+      ctx.translate(px, py + bob);
+      if (player.invuln > 0 && Math.floor(time * 14) % 2 === 0) ctx.globalAlpha = 0.42;
+      ctx.scale(player.facing * 0.8, 0.8);
+
+      // 스카프
+      ctx.fillStyle = '#f59e0b';
+      ctx.beginPath();
+      ctx.moveTo(-6, -8);
+      ctx.quadraticCurveTo(-22 - Math.sin(time * 7) * 6, -6, -28, 7);
+      ctx.quadraticCurveTo(-14, 1, -4, 2);
+      ctx.closePath();
+      ctx.fill();
+
+      // 백팩
+      ctx.fillStyle = '#b45309';
+      ctx.beginPath();
+      ctx.roundRect(-17, -10, 10, 18, 4);
+      ctx.fill();
+
+      // 다리
+      ctx.fillStyle = '#334155';
+      ctx.beginPath(); ctx.roundRect(-7, 13 + swing * 0.35, 8, 12, 3); ctx.fill();
+      ctx.beginPath(); ctx.roundRect(2, 13 - swing * 0.35, 8, 12, 3); ctx.fill();
+      ctx.fillStyle = '#1e293b';
+      ctx.beginPath(); ctx.roundRect(-9, 23 + swing * 0.35, 11, 5, 2.5); ctx.fill();
+      ctx.beginPath(); ctx.roundRect(1, 23 - swing * 0.35, 11, 5, 2.5); ctx.fill();
+
+      // 몸통
+      const c1 = isBoy ? '#3b82f6' : '#f43f5e';
+      const c2 = isBoy ? '#1d4ed8' : '#be123c';
+      const bg = ctx.createLinearGradient(0, -8, 0, 18);
+      bg.addColorStop(0, c1);
+      bg.addColorStop(1, c2);
+      ctx.fillStyle = bg;
+      ctx.beginPath(); ctx.roundRect(-11, -8, 22, 23, 8); ctx.fill();
+      ctx.fillStyle = 'rgba(0,0,0,0.28)';
+      ctx.fillRect(-11, 8, 22, 3);
+
+      // 팔
+      ctx.fillStyle = c1;
+      ctx.beginPath(); ctx.roundRect(-16, -6 + swing * 0.25, 6, 14, 3); ctx.fill();
+      ctx.beginPath(); ctx.roundRect(10, -6 - swing * 0.25, 6, 14, 3); ctx.fill();
+
+      // 머리
+      ctx.fillStyle = '#fcd5b5';
+      ctx.beginPath(); ctx.arc(0, -18, 12, 0, TAU); ctx.fill();
+
+      // 머리카락
+      if (isBoy) {
+        ctx.fillStyle = '#1f2937';
+        ctx.beginPath(); ctx.arc(0, -21, 12, Math.PI * 1.04, Math.PI * 1.96); ctx.fill();
+      } else {
+        ctx.fillStyle = '#4c1d24';
+        ctx.beginPath(); ctx.arc(0, -21, 12.5, Math.PI * 1.02, Math.PI * 1.98); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(-13, -15, 5, 8, -0.35, 0, TAU); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(13, -15, 5, 8, 0.35, 0, TAU); ctx.fill();
+      }
+
+      // 탐험 모자
+      ctx.fillStyle = '#f59e0b';
+      ctx.beginPath(); ctx.ellipse(0, -28, 16, 5, 0, 0, TAU); ctx.fill();
+      ctx.beginPath(); ctx.roundRect(-10, -38, 20, 12, 6); ctx.fill();
+      ctx.fillStyle = '#b45309';
+      ctx.beginPath(); ctx.roundRect(-10, -31, 20, 4, 2); ctx.fill();
+
+      // 얼굴
+      ctx.fillStyle = '#1f2937';
+      ctx.beginPath(); ctx.arc(4, -18, 1.9, 0, TAU); ctx.fill();
+      ctx.beginPath(); ctx.arc(9, -18, 1.9, 0, TAU); ctx.fill();
+      ctx.strokeStyle = '#9a3412';
+      ctx.lineWidth = 1.6;
+      ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.arc(6, -14, 3, 0.15 * Math.PI, 0.85 * Math.PI); ctx.stroke();
+      ctx.fillStyle = 'rgba(244,114,182,0.45)';
+      ctx.beginPath(); ctx.arc(1, -14, 2.3, 0, TAU); ctx.fill();
+      ctx.beginPath(); ctx.arc(12, -14, 2.3, 0, TAU); ctx.fill();
+
+      ctx.restore();
+
+      // 대시 준비 표시
+      if (state === 'PLAY') {
+        const ready = player.dashCd <= 0;
+        ctx.save();
+        ctx.globalAlpha = ready ? 0.32 + 0.18 * Math.sin(time * 5) : 0.5;
+        ctx.strokeStyle = ready ? '#67e8f9' : '#94a3b8';
+        ctx.lineWidth = ready ? 2.5 : 3;
+        ctx.beginPath();
+        if (ready) {
+          ctx.arc(px, py + 34, 12, 0, TAU);
+        } else {
+          ctx.arc(px, py + 34, 12, -Math.PI / 2, -Math.PI / 2 + TAU * (1 - player.dashCd / DASH_CD));
+        }
+        ctx.stroke();
+        ctx.restore();
+      }
+    }
+
+    function drawParticles() {
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      parts.forEach(p => {
+        ctx.globalAlpha = clamp(p.life / p.max, 0, 1);
+        ctx.fillStyle = p.color;
+        if (p.shape === 'rect') {
+          ctx.save();
+          ctx.translate(p.x, p.y);
+          ctx.rotate(p.rot);
+          ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size * 1.5);
+          ctx.restore();
+        } else {
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.size, 0, TAU);
+          ctx.fill();
+        }
+      });
+      ctx.restore();
+    }
+
+    function drawFloaters() {
+      ctx.save();
+      ctx.textAlign = 'center';
+      ctx.font = "bold 18px 'Jua', sans-serif";
+      floaters.forEach(f => {
+        ctx.globalAlpha = clamp(f.life / f.max, 0, 1);
+        ctx.fillStyle = 'rgba(0,0,0,0.5)';
+        ctx.fillText(f.text, f.x + 1, f.y + 1);
+        ctx.fillStyle = f.color;
+        ctx.fillText(f.text, f.x, f.y);
+      });
+      ctx.restore();
+    }
+
+    /* =========================================================
+       15. UI 바인딩 · 시작
+    ========================================================= */
+    function bindUI() {
+      document.querySelectorAll('.diff-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          difficulty = btn.dataset.diff;
+          document.querySelectorAll('.diff-btn').forEach(b => b.classList.toggle('active', b === btn));
+          sfx('click');
+        });
+      });
+
+      document.querySelectorAll('.char-card').forEach(card => {
+        card.addEventListener('click', () => startGame(card.dataset.gender));
+      });
+
+      document.querySelectorAll('.pad-btn').forEach(btn => {
+        const dir = btn.dataset.dir;
+        const on = e => {
+          e.preventDefault();
+          virt[dir] = true;
+          btn.classList.add('held');
+        };
+        const off = () => {
+          virt[dir] = false;
+          btn.classList.remove('held');
+        };
+        btn.addEventListener('pointerdown', on);
+        btn.addEventListener('pointerup', off);
+        btn.addEventListener('pointerleave', off);
+        btn.addEventListener('pointercancel', off);
+      });
+
+      const dashBtn = $('dash-btn');
+      dashBtn.addEventListener('pointerdown', e => {
+        e.preventDefault();
+        tryDash();
+      });
+
+      $('sound-btn').addEventListener('click', toggleMute);
+      $('sound-btn-select').addEventListener('click', toggleMute);
+      $('quiz-continue').addEventListener('click', continueQuiz);
+      $('btn-restart').addEventListener('click', resetGame);
+
+      const unlock = () => {
+        audioCtx();
+        window.removeEventListener('pointerdown', unlock);
+      };
+      window.addEventListener('pointerdown', unlock);
+    }
+
+    let lastTs = performance.now();
+    function loop(ts) {
+      const dt = clamp((ts - lastTs) / 1000 || 0.016, 0, 0.033);
+      lastTs = ts;
+      t += dt;
+      update(dt);
+      render();
+      requestAnimationFrame(loop);
+    }
+
+    function init() {
+      maxHearts = DIFFICULTY[difficulty].hearts;
+      hearts = maxHearts;
+      $('best-score-select').textContent = best;
+      syncSoundButtons();
+      updateHUD();
+      bindUI();
+      requestAnimationFrame(loop);
+    }
+
+    init();
   </script>
 </body>
 </html>
