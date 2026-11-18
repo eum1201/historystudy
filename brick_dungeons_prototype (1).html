@@ -1,0 +1,857 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Brick Dungeons</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #000; font-family: 'Inter', sans-serif; }
+        #game-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+        #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
+        .hud-text { text-shadow: 2px 2px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000; }
+        
+        /* Start Screen */
+        #start-screen { pointer-events: auto; background: rgba(0,0,0,0.7); }
+        
+        /* Shop Screen */
+        #shop-screen { pointer-events: auto; background: rgba(0,0,0,0.85); display: none; }
+        .progress-bar { transition: width 0.3s; }
+    </style>
+</head>
+<body>
+
+<div id="game-container"></div>
+
+<div id="ui-layer" class="flex flex-col justify-between p-4 z-10">
+    <div class="flex justify-between items-start text-white hud-text text-2xl font-bold">
+        <div>
+            <div id="health-bar" class="text-red-500">❤️❤️❤️</div>
+            <div class="text-yellow-400 mt-1">Score: <span id="score">0</span></div>
+            <div class="text-blue-400 mt-1 text-xl">Lv: <span id="level">1</span> (Exp: <span id="exp">0</span>/<span id="max-exp">50</span>)</div>
+            <div class="text-orange-400 mt-1 text-xl">Bricks: <span id="bricks">0</span> 🧱</div>
+        </div>
+        <div class="text-right text-sm text-gray-200">
+            [W][A][S][D] - 이동<br>
+            [Space] - 공격<br>
+            [B] - 상점 열기/닫기
+        </div>
+    </div>
+</div>
+
+<!-- 보스 체력 UI 추가 -->
+<div id="boss-ui" class="absolute top-4 left-1/2 transform -translate-x-1/2 z-10 w-1/2 text-center" style="display: none;">
+    <h2 class="text-3xl font-bold text-red-500 mb-2 hud-text drop-shadow-md">거대 브릭 보스</h2>
+    <div class="w-full bg-gray-800 border-4 border-red-900 h-8 rounded-lg overflow-hidden">
+        <div id="boss-hp-bar" class="bg-red-500 h-full w-full transition-all duration-200"></div>
+    </div>
+</div>
+
+<!-- 엔딩 화면 추가 -->
+<div id="ending-screen" class="absolute inset-0 flex flex-col items-center justify-center text-white z-50" style="background: rgba(0,0,0,0.9); display: none;">
+    <h1 class="text-6xl font-black mb-4 text-green-400 hud-text tracking-wider">GAME CLEAR!</h1>
+    <p class="text-2xl mb-8 hud-text text-white">거대 브릭 보스를 물리치고 브릭 시티에 평화를 가져왔습니다!</p>
+    <p id="ending-stats" class="text-xl mb-8 hud-text text-yellow-400"></p>
+    <button onclick="startGame()" class="px-8 py-4 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-lg text-2xl border-b-4 border-blue-800 active:border-b-0 active:mt-1 transition-all pointer-events-auto">
+        다시 하기
+    </button>
+</div>
+
+<div id="start-screen" class="absolute inset-0 flex flex-col items-center justify-center text-white z-50">
+    <h1 class="text-6xl font-black mb-4 text-yellow-400 hud-text tracking-wider">BRICK DUNGEONS</h1>
+    <p class="text-xl mb-8 hud-text">브릭 시티에서 몬스터들을 물리치세요!</p>
+    <button id="start-btn" class="px-8 py-4 bg-red-600 hover:bg-red-500 text-white font-bold rounded-lg text-2xl border-b-4 border-red-800 active:border-b-0 active:mt-1 transition-all pointer-events-auto">
+        게임 시작
+    </button>
+</div>
+
+<div id="shop-screen" class="absolute inset-0 flex flex-col items-center justify-center text-white z-50">
+    <h2 class="text-5xl font-black mb-8 text-orange-400 hud-text">브릭 상점</h2>
+    <div class="text-2xl mb-4">보유 브릭: <span id="shop-bricks">0</span> 🧱</div>
+    
+    <div class="flex gap-4">
+        <button onclick="buyWeapon()" class="p-4 bg-gray-800 border-2 border-gray-600 rounded-lg hover:bg-gray-700 transition flex flex-col items-center">
+            <span class="text-xl font-bold text-blue-400 mb-2">무기 강화</span>
+            <span class="text-sm mb-2">공격력 & 사거리 증가</span>
+            <span id="price-weapon" class="text-yellow-400">10 🧱</span>
+        </button>
+        <button onclick="buyArmor()" class="p-4 bg-gray-800 border-2 border-gray-600 rounded-lg hover:bg-gray-700 transition flex flex-col items-center">
+            <span class="text-xl font-bold text-green-400 mb-2">방어구 강화</span>
+            <span class="text-sm mb-2">받는 피해 감소</span>
+            <span id="price-armor" class="text-yellow-400">15 🧱</span>
+        </button>
+        <button onclick="buyHeal()" class="p-4 bg-gray-800 border-2 border-gray-600 rounded-lg hover:bg-gray-700 transition flex flex-col items-center">
+            <span class="text-xl font-bold text-red-400 mb-2">체력 회복</span>
+            <span class="text-sm mb-2">전체 체력 회복</span>
+            <span class="text-yellow-400">5 🧱</span>
+        </button>
+    </div>
+    <button onclick="toggleShop()" class="mt-8 px-6 py-2 bg-red-600 hover:bg-red-500 rounded text-xl font-bold border-b-4 border-red-800 active:border-b-0 active:mt-9 transition-all">닫기 (B)</button>
+</div>
+
+<script>
+    let scene, camera, renderer;
+    let player, enemies = [];
+    let keys = { w: false, a: false, s: false, d: false, space: false };
+    let isAttacking = false;
+    let score = 0;
+    let health = 5;
+    let gameActive = false;
+    let clock = new THREE.Clock();
+    
+    // New Game States
+    let maxHealth = 5;
+    let level = 1;
+    let exp = 0;
+    let maxExp = 50;
+    let bricks = 0;
+    let weaponLevel = 1;
+    let defenseLevel = 0;
+    let currentStage = 1;
+    let environmentGroup = new THREE.Group();
+    let shopOpen = false;
+
+    // Boss States
+    let bossActive = false;
+    let bossEntity = null;
+    let particles = []; // 타격 파티클 배열
+
+    // Materials (Lego Plastic Look)
+    const colors = {
+        red: 0xcc0000,
+        blue: 0x0033cc,
+        yellow: 0xffcc00,
+        green: 0x009900,
+        gray: 0x888888,
+        darkGray: 0x333333,
+        skin: 0xffcc99
+    };
+
+    function plasticMaterial(colorHex) {
+        return new THREE.MeshStandardMaterial({
+            color: colorHex,
+            roughness: 0.2,
+            metalness: 0.1,
+            flatShading: true
+        });
+    }
+
+    function createLegoBlock(w, h, d, colorHex) {
+        const geo = new THREE.BoxGeometry(w, h, d);
+        const mat = plasticMaterial(colorHex);
+        const mesh = new THREE.Mesh(geo, mat);
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+        
+        // Add studs (돌기)
+        const studGeo = new THREE.CylinderGeometry(0.2, 0.2, 0.2, 8);
+        const studMat = plasticMaterial(colorHex);
+        const studsX = Math.floor(w);
+        const studsZ = Math.floor(d);
+        
+        for(let i=0; i<studsX; i++) {
+            for(let j=0; j<studsZ; j++) {
+                const stud = new THREE.Mesh(studGeo, studMat);
+                stud.position.set(
+                    -w/2 + 0.5 + i,
+                    h/2 + 0.1,
+                    -d/2 + 0.5 + j
+                );
+                mesh.add(stud);
+            }
+        }
+        return mesh;
+    }
+
+    function createLegoCharacter(bodyColor, pantsColor) {
+        const group = new THREE.Group();
+        
+        // Head
+        const headGeo = new THREE.BoxGeometry(0.8, 0.8, 0.8);
+        const headMat = plasticMaterial(colors.skin);
+        const head = new THREE.Mesh(headGeo, headMat);
+        head.position.y = 1.8;
+        head.castShadow = true;
+        group.add(head);
+
+        // Body
+        const bodyGeo = new THREE.BoxGeometry(1.0, 1.2, 0.6);
+        const bodyMat = plasticMaterial(bodyColor);
+        const body = new THREE.Mesh(bodyGeo, bodyMat);
+        body.position.y = 0.8;
+        body.castShadow = true;
+        group.add(body);
+
+        // Arms (Right arm holds sword)
+        const armGeo = new THREE.BoxGeometry(0.4, 1.0, 0.4);
+        const armMat = plasticMaterial(bodyColor);
+        
+        const leftArm = new THREE.Mesh(armGeo, armMat);
+        leftArm.position.set(-0.7, 1.0, 0);
+        leftArm.castShadow = true;
+        group.add(leftArm);
+
+        const rightArm = new THREE.Group(); // Group for swing animation
+        rightArm.position.set(0.7, 1.2, 0); // Pivot at shoulder
+        const rightArmMesh = new THREE.Mesh(armGeo, armMat);
+        rightArmMesh.position.y = -0.2; // Adjust relative to pivot
+        rightArmMesh.castShadow = true;
+        rightArm.add(rightArmMesh);
+
+        // Sword
+        const swordGeo = new THREE.BoxGeometry(0.2, 1.5, 0.2);
+        const swordMat = plasticMaterial(colors.gray);
+        const sword = new THREE.Mesh(swordGeo, swordMat);
+        sword.position.set(0, -0.5, 0.6);
+        sword.rotation.x = Math.PI / 2;
+        sword.castShadow = true;
+        rightArm.add(sword);
+        group.rightArm = rightArm; // Store reference for animation
+        group.add(rightArm);
+
+        // Legs
+        const legGeo = new THREE.BoxGeometry(0.4, 0.8, 0.5);
+        const legMat = plasticMaterial(pantsColor);
+        
+        const leftLeg = new THREE.Mesh(legGeo, legMat);
+        leftLeg.position.set(-0.25, 0.4, 0);
+        leftLeg.castShadow = true;
+        group.add(leftLeg);
+        
+        const rightLeg = new THREE.Mesh(legGeo, legMat);
+        rightLeg.position.set(0.25, 0.4, 0);
+        rightLeg.castShadow = true;
+        group.add(rightLeg);
+
+        return group;
+    }
+
+    function init() {
+        scene = new THREE.Scene();
+        
+        camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 100);
+        camera.position.set(15, 20, 15);
+        camera.lookAt(0, 0, 0);
+
+        renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true;
+        document.getElementById('game-container').appendChild(renderer.domElement);
+
+        // Lights
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+        scene.add(ambientLight);
+
+        const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        dirLight.position.set(20, 30, 10);
+        dirLight.castShadow = true;
+        dirLight.shadow.mapSize.width = 2048;
+        dirLight.shadow.mapSize.height = 2048;
+        dirLight.shadow.camera.near = 0.5;
+        dirLight.shadow.camera.far = 100;
+        dirLight.shadow.camera.left = -20;
+        dirLight.shadow.camera.right = 20;
+        dirLight.shadow.camera.top = 20;
+        dirLight.shadow.camera.bottom = -20;
+        scene.add(dirLight);
+
+        scene.add(environmentGroup);
+
+        // Event Listeners
+        window.addEventListener('keydown', onKeyDown);
+        window.addEventListener('keyup', onKeyUp);
+        window.addEventListener('resize', onWindowResize);
+        document.getElementById('start-btn').addEventListener('click', startGame);
+
+        // Start animation loop
+        animate();
+    }
+
+    function loadStage(stageNum) {
+        // Clear previous environment
+        while(environmentGroup.children.length > 0){ 
+            environmentGroup.remove(environmentGroup.children[0]); 
+        }
+
+        let groundColor, buildingColors, numBuildings, heightMult;
+
+        if (stageNum === 1) {
+            // Stage 1: Outskirts (Green, sparse)
+            groundColor = colors.green;
+            buildingColors = [colors.red, colors.yellow, colors.blue];
+            numBuildings = 15;
+            heightMult = 1;
+            scene.background = new THREE.Color(0x87CEEB);
+            scene.fog = new THREE.Fog(0x87CEEB, 20, 50);
+        } else if (stageNum === 2) {
+            // Stage 2: City Downtown (Gray, dense, taller)
+            groundColor = colors.gray;
+            buildingColors = [colors.gray, colors.blue, colors.red, colors.yellow];
+            numBuildings = 30;
+            heightMult = 3;
+            scene.background = new THREE.Color(0x557799);
+            scene.fog = new THREE.Fog(0x557799, 15, 45);
+        } else if (stageNum === 3) {
+            // Stage 3: Dark Industrial Area
+            groundColor = colors.darkGray;
+            buildingColors = [colors.darkGray, colors.red];
+            numBuildings = 45;
+            heightMult = 5;
+            scene.background = new THREE.Color(0x221111);
+            scene.fog = new THREE.Fog(0x221111, 10, 40);
+        } else if (stageNum === 4) {
+            // Stage 4: Boss Arena (Red/Dark theme)
+            groundColor = colors.darkGray;
+            buildingColors = [colors.red, colors.darkGray];
+            numBuildings = 20; // Sparse to give arena feel
+            heightMult = 4;
+            scene.background = new THREE.Color(0x440000);
+            scene.fog = new THREE.Fog(0x440000, 10, 50);
+        }
+
+        // Ground (Lego Baseplate)
+        const groundGeo = new THREE.PlaneGeometry(80, 80);
+        const groundMat = plasticMaterial(groundColor);
+        const ground = new THREE.Mesh(groundGeo, groundMat);
+        ground.rotation.x = -Math.PI / 2;
+        ground.receiveShadow = true;
+        environmentGroup.add(ground);
+
+        const gridHelper = new THREE.GridHelper(80, 160, 0x000000, 0x000000);
+        gridHelper.position.y = 0.01;
+        gridHelper.material.opacity = 0.2;
+        gridHelper.material.transparent = true;
+        environmentGroup.add(gridHelper);
+
+        // Add buildings
+        for(let i=0; i<numBuildings; i++) {
+            const width = 2 + Math.random() * 4;
+            const depth = 2 + Math.random() * 4;
+            const height = (2 + Math.random() * 4) * heightMult;
+            const color = buildingColors[Math.floor(Math.random() * buildingColors.length)];
+            
+            const building = createLegoBlock(width, height, depth, color);
+            
+            // Random position, keeping center clear
+            let px, pz;
+            do {
+                px = (Math.random() - 0.5) * 60;
+                pz = (Math.random() - 0.5) * 60;
+            } while(Math.abs(px) < 10 && Math.abs(pz) < 10);
+
+            building.position.set(px, height/2, pz);
+            environmentGroup.add(building);
+        }
+    }
+
+    function spawnBoss() {
+        bossActive = true;
+        document.getElementById('boss-ui').style.display = 'block';
+
+        // 4x6x4 거대 보스 블록 생성
+        const size = 4.0;
+        bossEntity = createLegoBlock(size, size * 1.5, size, colors.red); 
+        bossEntity.position.set(0, size, -20);
+        
+        // 보스 체력 설정 (무기 레벨에 따라 약간 보정)
+        bossEntity.maxHp = 150 + (weaponLevel * 10);
+        bossEntity.hp = bossEntity.maxHp;
+        bossEntity.size = size;
+
+        // 보스 패턴 상태
+        bossEntity.jumpCooldown = 3.0; // 3초 후 첫 점프
+        bossEntity.isJumping = false;
+        bossEntity.jumpVelocity = 0;
+
+        scene.add(bossEntity);
+    }
+
+    function triggerEnding() {
+        gameActive = false;
+        bossActive = false;
+        document.getElementById('boss-ui').style.display = 'none';
+        document.getElementById('ending-screen').style.display = 'flex';
+        document.getElementById('ending-stats').innerText = `최종 레벨: ${level} | 달성 점수: ${score} | 남은 브릭: ${bricks} 🧱`;
+    }
+
+    function spawnEnemy() {
+        if(!gameActive || shopOpen || bossActive) return; // 보스전 중에는 일반 몬스터 스폰 중지
+        
+        // Size scales slightly with stage
+        const size = 0.6 + (currentStage * 0.15);
+        const enemyColor = currentStage === 3 ? colors.red : (currentStage === 2 ? colors.gray : colors.darkGray);
+        const enemy = createLegoBlock(size, size, size, enemyColor);
+        const angle = Math.random() * Math.PI * 2;
+        const radius = 15 + Math.random() * 10;
+        
+        enemy.position.set(
+            player.position.x + Math.cos(angle) * radius,
+            size/2,
+            player.position.z + Math.sin(angle) * radius
+        );
+        
+        // HP scales with stage and level
+        enemy.hp = currentStage * 2 + Math.floor(level / 2);
+        enemy.maxHp = enemy.hp;
+        scene.add(enemy);
+        enemies.push(enemy);
+
+        // Spawn faster as level increases
+        let spawnRate = Math.max(400, 2000 - (level * 150) - (currentStage * 200));
+        setTimeout(spawnEnemy, spawnRate);
+    }
+
+    function spawnBossMinion(x, z) {
+        const size = 0.8;
+        const enemy = createLegoBlock(size, size, size, colors.darkGray);
+        enemy.position.set(x + (Math.random()-0.5)*10, size/2, z + (Math.random()-0.5)*10);
+        enemy.hp = 5;
+        enemy.maxHp = 5;
+        scene.add(enemy);
+        enemies.push(enemy);
+    }
+
+    function createParticles(x, y, z, colorHex, count = 10) {
+        for(let i=0; i<count; i++) {
+            const size = 0.1 + Math.random() * 0.2;
+            const geo = new THREE.BoxGeometry(size, size, size);
+            const mat = plasticMaterial(colorHex);
+            const mesh = new THREE.Mesh(geo, mat);
+            mesh.position.set(x, y, z);
+            
+            // 무작위 방향으로 튀어오르는 물리량
+            mesh.userData.velocity = new THREE.Vector3(
+                (Math.random() - 0.5) * 15,
+                Math.random() * 10 + 5,
+                (Math.random() - 0.5) * 15
+            );
+            mesh.userData.life = 1.0; // 1초 뒤 사라짐
+            
+            scene.add(mesh);
+            particles.push(mesh);
+        }
+    }
+
+    function updateParticles(dt) {
+        for(let i = particles.length - 1; i >= 0; i--) {
+            const p = particles[i];
+            p.userData.life -= dt;
+            
+            if(p.userData.life <= 0) {
+                scene.remove(p);
+                particles.splice(i, 1);
+                continue;
+            }
+            
+            // 중력 적용
+            p.userData.velocity.y -= 25 * dt; 
+            
+            p.position.addScaledVector(p.userData.velocity, dt);
+            p.rotation.x += dt * 10;
+            p.rotation.y += dt * 10;
+            
+            // 바닥 충돌 시 튕김
+            if(p.position.y < 0) {
+                p.position.y = 0;
+                p.userData.velocity.y *= -0.5;
+                p.userData.velocity.x *= 0.8;
+                p.userData.velocity.z *= 0.8;
+            }
+        }
+    }
+
+    function onKeyDown(e) {
+        if(e.key.toLowerCase() in keys) keys[e.key.toLowerCase()] = true;
+        if(e.key === ' ' && !isAttacking && gameActive && !shopOpen) {
+            attack();
+        }
+        if(e.key.toLowerCase() === 'b' && gameActive) {
+            toggleShop();
+        }
+    }
+
+    function onKeyUp(e) {
+        if(e.key.toLowerCase() in keys) keys[e.key.toLowerCase()] = false;
+    }
+
+    function attack() {
+        isAttacking = true;
+        
+        // 검 흔드는 애니메이션
+        const initialRotation = player.rightArm.rotation.x;
+        const swingTarget = -Math.PI / 2;
+        let progress = 0;
+        
+        function animateSwing() {
+            progress += 0.2;
+            if(progress <= 1) {
+                player.rightArm.rotation.x = initialRotation + (swingTarget - initialRotation) * Math.sin(progress * Math.PI);
+                requestAnimationFrame(animateSwing);
+            } else {
+                player.rightArm.rotation.x = 0;
+                isAttacking = false;
+                checkAttackCollision();
+            }
+        }
+        animateSwing();
+    }
+
+    function checkAttackCollision() {
+        const attackRange = 2.0 + (weaponLevel * 0.2); // Weapon upgrades increase range slightly
+        for(let i = enemies.length - 1; i >= 0; i--) {
+            const enemy = enemies[i];
+            const dist = player.position.distanceTo(enemy.position);
+            
+            // If enemy is close enough
+            if(dist < attackRange) {
+                // Deal damage
+                enemy.hp -= weaponLevel;
+                
+                // 타격 파티클 생성
+                createParticles(enemy.position.x, enemy.position.y, enemy.position.z, enemy.material.color.getHex(), 5);
+                
+                // Knockback enemy slightly
+                const dx = enemy.position.x - player.position.x;
+                const dz = enemy.position.z - player.position.z;
+                enemy.position.x += (dx/dist) * 1.5;
+                enemy.position.z += (dz/dist) * 1.5;
+
+                if(enemy.hp <= 0) {
+                    scene.remove(enemy);
+                    enemies.splice(i, 1);
+                    
+                    score += 10 * currentStage;
+                    bricks += Math.floor(Math.random() * 3) + currentStage; // Drop bricks
+                    addExp(20 * currentStage); // Gain Exp
+                    updateStatsUI();
+                }
+            }
+        }
+
+        // 보스 타격 판정
+        if(bossActive && bossEntity) {
+            const dist = player.position.distanceTo(bossEntity.position);
+            const bossHitbox = attackRange + 2.0; // 보스 크기를 고려한 히트박스
+            
+            if(dist < bossHitbox) {
+                bossEntity.hp -= weaponLevel;
+                
+                // 타격 파티클 생성
+                createParticles(bossEntity.position.x, bossEntity.position.y - 1, bossEntity.position.z, bossEntity.material.color.getHex(), 15);
+
+                // 보스 체력바 UI 업데이트
+                document.getElementById('boss-hp-bar').style.width = (bossEntity.hp / bossEntity.maxHp * 100) + '%';
+                
+                // 보스 미세한 넉백
+                const dx = bossEntity.position.x - player.position.x;
+                const dz = bossEntity.position.z - player.position.z;
+                bossEntity.position.x += (dx/dist) * 0.2;
+                bossEntity.position.z += (dz/dist) * 0.2;
+
+                if(bossEntity.hp <= 0) {
+                    scene.remove(bossEntity);
+                    triggerEnding(); // 보스 처치 시 엔딩
+                }
+            }
+        }
+    }
+
+    function addExp(amount) {
+        exp += amount;
+        if(exp >= maxExp) {
+            exp -= maxExp;
+            level++;
+            maxExp = Math.floor(maxExp * 1.5);
+            maxHealth += 1;
+            health = maxHealth; // Full heal on level up
+            
+            // Stage Progression
+            if(level === 4 && currentStage === 1) {
+                currentStage = 2;
+                loadStage(currentStage);
+            } else if(level === 7 && currentStage === 2) {
+                currentStage = 3;
+                loadStage(currentStage);
+            } else if(level === 10 && currentStage === 3) {
+                currentStage = 4;
+                loadStage(currentStage);
+                spawnBoss(); // 레벨 10 달성 시 보스 소환
+            }
+        }
+    }
+
+    function onWindowResize() {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+
+    function startGame() {
+        // Init player if not initialized
+        if (!player) {
+            player = createLegoCharacter(colors.blue, colors.red);
+            scene.add(player);
+        }
+
+        document.getElementById('start-screen').style.display = 'none';
+        document.getElementById('shop-screen').style.display = 'none';
+        document.getElementById('ending-screen').style.display = 'none';
+        document.getElementById('boss-ui').style.display = 'none';
+        gameActive = true;
+        shopOpen = false;
+        bossActive = false;
+        
+        if(bossEntity) {
+            scene.remove(bossEntity);
+            bossEntity = null;
+        }
+        
+        // Reset Stats
+        score = 0;
+        level = 1;
+        exp = 0;
+        maxExp = 50;
+        bricks = 0;
+        weaponLevel = 1;
+        defenseLevel = 0;
+        currentStage = 1;
+        maxHealth = 5;
+        health = maxHealth;
+        
+        loadStage(currentStage);
+        updateStatsUI();
+        
+        // Clear old enemies
+        enemies.forEach(e => scene.remove(e));
+        enemies = [];
+        
+        particles.forEach(p => scene.remove(p));
+        particles = [];
+
+        player.position.set(0,0,0);
+        
+        setTimeout(spawnEnemy, 1000);
+    }
+
+    function updateStatsUI() {
+        let hearts = "";
+        for(let i=0; i<health; i++) hearts += "❤️";
+        for(let i=health; i<maxHealth; i++) hearts += "🖤"; // Empty hearts
+        document.getElementById('health-bar').innerText = hearts || "💀 게임 오버";
+        
+        document.getElementById('score').innerText = score;
+        document.getElementById('level').innerText = level;
+        document.getElementById('exp').innerText = exp;
+        document.getElementById('max-exp').innerText = maxExp;
+        document.getElementById('bricks').innerText = bricks;
+        
+        if(health <= 0) {
+            gameActive = false;
+            document.getElementById('start-screen').style.display = 'flex';
+            document.querySelector('#start-screen h1').innerText = "GAME OVER";
+            document.querySelector('#start-screen p').innerText = `최종 레벨: ${level} | 스테이지: ${currentStage} | 점수: ${score}`;
+            document.getElementById('start-btn').innerText = "다시 하기";
+        }
+    }
+
+    // --- Shop Functions ---
+    function toggleShop() {
+        shopOpen = !shopOpen;
+        const shopUI = document.getElementById('shop-screen');
+        if(shopOpen) {
+            shopUI.style.display = 'flex';
+            document.getElementById('shop-bricks').innerText = bricks;
+            document.getElementById('price-weapon').innerText = (weaponLevel * 10) + " 🧱";
+            document.getElementById('price-armor').innerText = ((defenseLevel + 1) * 15) + " 🧱";
+        } else {
+            shopUI.style.display = 'none';
+        }
+    }
+
+    function buyWeapon() {
+        const cost = weaponLevel * 10;
+        if(bricks >= cost) {
+            bricks -= cost;
+            weaponLevel++;
+            document.getElementById('shop-bricks').innerText = bricks;
+            document.getElementById('price-weapon').innerText = (weaponLevel * 10) + " 🧱";
+            updateStatsUI();
+        }
+    }
+
+    function buyArmor() {
+        const cost = (defenseLevel + 1) * 15;
+        if(bricks >= cost) {
+            bricks -= cost;
+            defenseLevel++;
+            document.getElementById('shop-bricks').innerText = bricks;
+            document.getElementById('price-armor').innerText = ((defenseLevel + 1) * 15) + " 🧱";
+            updateStatsUI();
+        }
+    }
+
+    function buyHeal() {
+        const cost = 5;
+        if(bricks >= cost && health < maxHealth) {
+            bricks -= cost;
+            health = maxHealth;
+            document.getElementById('shop-bricks').innerText = bricks;
+            updateStatsUI();
+        }
+    }
+    // ----------------------
+
+    function updatePlayer(dt) {
+        if (!player) return;
+        const speed = 6 + (level * 0.2); // Player gets slightly faster
+        let dx = 0;
+        let dz = 0;
+
+        if(keys.w) dz -= 1;
+        if(keys.s) dz += 1;
+        if(keys.a) dx -= 1;
+        if(keys.d) dx += 1;
+
+        // Normalize diagonal movement
+        if(dx !== 0 || dz !== 0) {
+            const length = Math.sqrt(dx*dx + dz*dz);
+            dx /= length;
+            dz /= length;
+            
+            player.position.x += dx * speed * dt;
+            player.position.z += dz * speed * dt;
+            
+            // Calculate rotation to face movement direction
+            player.targetRotation = Math.atan2(dx, dz);
+        }
+
+        // Smooth rotation
+        if (player.targetRotation !== undefined) {
+            const rotationDiff = player.targetRotation - player.rotation.y;
+            player.rotation.y += rotationDiff * 0.1;
+        }
+
+        // Camera follow
+        camera.position.x = player.position.x + 15;
+        camera.position.z = player.position.z + 15;
+        camera.lookAt(player.position.x, player.position.y, player.position.z);
+    }
+
+    function updateEnemies(dt) {
+        if (!player) return;
+        const speed = 2.0 + (currentStage * 0.5); // Enemies get faster
+        for(let i = enemies.length - 1; i >= 0; i--) {
+            const enemy = enemies[i];
+            
+            // Move towards player
+            const dx = player.position.x - enemy.position.x;
+            const dz = player.position.z - enemy.position.z;
+            const dist = Math.sqrt(dx*dx + dz*dz);
+            
+            if(dist > 0) {
+                enemy.position.x += (dx/dist) * speed * dt;
+                enemy.position.z += (dz/dist) * speed * dt;
+            }
+            
+            // Damage player if too close
+            if(dist < 0.8) {
+                // Calculate damage with defense mitigation (minimum 1 damage)
+                const damage = Math.max(1, currentStage - Math.floor(defenseLevel / 2));
+                health -= damage;
+                updateStatsUI();
+                
+                scene.remove(enemy);
+                enemies.splice(i, 1);
+                
+                // Knockback effect
+                player.position.x += (dx/dist) * -2;
+                player.position.z += (dz/dist) * -2;
+            }
+        }
+
+        // 보스 이동 및 공격 판정
+        if(bossActive && bossEntity) {
+            const speed = 3.5; // 보스 이동 속도
+            const dx = player.position.x - bossEntity.position.x;
+            const dz = player.position.z - bossEntity.position.z;
+            const dist = Math.sqrt(dx*dx + dz*dz);
+            
+            if(bossEntity.isJumping) {
+                // 점프 중
+                bossEntity.position.y += bossEntity.jumpVelocity * dt;
+                bossEntity.jumpVelocity -= 35 * dt; // 중력
+                
+                // 땅에 닿았을 때 (내리찍기)
+                if(bossEntity.position.y <= bossEntity.size) {
+                    bossEntity.position.y = bossEntity.size;
+                    bossEntity.isJumping = false;
+                    bossEntity.jumpCooldown = 5.0 + Math.random() * 2.0; // 다음 점프까지 5~7초
+                    
+                    // 광역(AOE) 공격 파티클 효과
+                    createParticles(bossEntity.position.x, 0, bossEntity.position.z, colors.darkGray, 40);
+                    
+                    // 광역 데미지 판정 (12.0 반경)
+                    if(dist < 12.0) {
+                        const damage = Math.max(3, 8 - Math.floor(defenseLevel / 2));
+                        health -= damage;
+                        updateStatsUI();
+                        // 크게 밀려남
+                        player.position.x += (dx/dist) * -10;
+                        player.position.z += (dz/dist) * -10;
+                    }
+                    
+                    // 부하 소환
+                    for(let m=0; m<3; m++) {
+                        spawnBossMinion(bossEntity.position.x, bossEntity.position.z);
+                    }
+                }
+            } else {
+                bossEntity.jumpCooldown -= dt;
+                if(bossEntity.jumpCooldown <= 0) {
+                    bossEntity.isJumping = true;
+                    bossEntity.jumpVelocity = 18; // 위로 점프
+                }
+
+                // 플레이어를 향해 이동
+                if(dist > 0 && dist > 2.0) { // 너무 가깝지 않을 때만 이동
+                    bossEntity.position.x += (dx/dist) * speed * dt;
+                    bossEntity.position.z += (dz/dist) * speed * dt;
+                }
+                
+                // 기본 평타 판정
+                if(dist < 3.5) {
+                    // 방어력을 뚫는 강력한 데미지
+                    const damage = Math.max(2, 6 - Math.floor(defenseLevel / 2));
+                    health -= damage;
+                    updateStatsUI();
+                    
+                    // 보스에게 맞으면 밀려남
+                    player.position.x += (dx/dist) * -4;
+                    player.position.z += (dz/dist) * -4;
+                }
+            }
+        }
+    }
+
+    function animate() {
+        requestAnimationFrame(animate);
+        
+        const dt = clock.getDelta();
+
+        if(gameActive && !shopOpen) {
+            updatePlayer(dt);
+            updateEnemies(dt);
+            updateParticles(dt);
+        }
+
+        renderer.render(scene, camera);
+    }
+
+    // Call init on window load to ensure everything is ready
+    window.onload = function() {
+        init();
+    };
+</script>
+</body>
+</html>
